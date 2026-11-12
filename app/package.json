@@ -1,0 +1,10 @@
+{
+  "name": "ende-control",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ENDE CONTROL — PWA offline-first (clientes, pagamentos, cobranças)",
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\""
+  }
+}
