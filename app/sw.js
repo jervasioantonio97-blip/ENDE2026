@@ -19,6 +19,7 @@ const SHELL = [
   './icons/icon-512.png',
   './icons/icon-maskable-512.png',
   './src/app.js',
+  './src/admin-users.js',
   './src/auth.js',
   './src/config.js',
   './src/remote-supabase.js',

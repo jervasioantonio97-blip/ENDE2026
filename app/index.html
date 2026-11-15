@@ -137,6 +137,7 @@ footer{text-align:center;padding:16px;color:#637383;font-size:12.5px}
       <button type="button" data-tab="pagamentos">Pagamentos</button>
       <button type="button" data-tab="cobrancas">Cobranças</button>
       <button type="button" data-tab="dados">Importar / Exportar</button>
+      <button type="button" data-tab="equipa" id="tabEquipa" hidden>Equipa</button>
     </nav>
 
     <!-- Painel -->
@@ -275,6 +276,41 @@ footer{text-align:center;padding:16px;color:#637383;font-size:12.5px}
       <div class="panel">
         <h3>Limitações e segurança</h3>
         <p>Os dados ficam neste dispositivo até sincronizar. Não existe validação bancária automática nem ligação directa à ENDE ou aos bancos. Exporte cópias de segurança regularmente.</p>
+      </div>
+    </section>
+
+    <!-- Equipa (só administradores) -->
+    <section id="equipa" class="tab hidden">
+      <div class="panel">
+        <h3>Emitir credenciais de acesso</h3>
+        <p class="muted">A palavra-passe é gerada no servidor e mostrada uma única vez. Entregue-a ao funcionário por um canal seguro.</p>
+        <form id="accountForm">
+          <div class="formgrid">
+            <div><label for="accEmail">E-mail do funcionário *</label><input id="accEmail" type="email" autocomplete="off" required></div>
+            <div><label for="accName">Nome completo</label><input id="accName" autocomplete="off"></div>
+            <div><label for="accRole">Papel *</label><select id="accRole">
+              <option value="operador">Operador — vê tudo, não valida pagamentos</option>
+              <option value="admin">Administrador — valida pagamentos e gere equipa</option>
+            </select></div>
+          </div>
+          <div class="actions">
+            <button class="btn" type="submit" id="accCreate">Gerar credenciais</button>
+          </div>
+        </form>
+        <div class="notice ok hidden" id="accCreds" style="margin-top:12px">
+          <strong>Credenciais criadas</strong>
+          <div id="accCredsBody" style="font-family:monospace;white-space:pre-wrap;margin-top:6px"></div>
+          <div class="actions">
+            <button class="btn secondary" type="button" id="accCopy">Copiar credenciais</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Contas da organização</h3>
+        <div class="actions" style="margin-top:0">
+          <button class="btn secondary" type="button" id="accReload">Actualizar lista</button>
+        </div>
+        <div class="tablewrap" id="accountTable"></div>
       </div>
     </section>
   </main>

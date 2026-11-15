@@ -11,6 +11,7 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY, APP_VERSION } from './config.js';
 import { createAuth } from './auth.js';
 import { createSupabaseRemote } from './remote-supabase.js';
+import { createAdminUsers } from './admin-users.js';
 import { createSyncEngine, TABLES } from './core/sync-engine.js';
 import { openStore } from './core/idb-store.js';
 import { uuid } from './core/ids.js';
@@ -99,6 +100,17 @@ async function enterApp() {
   $('appView').hidden = false;
   $('userEmail').textContent = `${user.email} · ${state.role}`;
 
+  // O painel de equipa só existe para administradores.
+  const isAdmin = state.role === 'admin';
+  $('tabEquipa').hidden = !isAdmin;
+  if (!isAdmin) {
+    $('equipa').classList.add('hidden');
+    document.querySelectorAll('[data-tab]').forEach((b) => {
+      b.classList.toggle('active', b.dataset.tab === 'painel');
+    });
+    $('painel').classList.remove('hidden');
+  }
+
   if (!state.local) {
     state.local = await openStore('ende-control');
     const remote = createSupabaseRemote({
@@ -153,7 +165,147 @@ $('logoutBtn').addEventListener('click', async () => {
   await auth.signOut();
   state.engine = null;
   state.local = null;
+  state.role = null;
+  $('tabEquipa').hidden = true;
   showLogin();
+});
+
+// ── painel de equipa (só administradores) ────────────────────────────────────
+//
+// Fala com a Edge Function `admin-users`. O navegador envia apenas o JWT da
+// sessão — quem tem a chave de serviço é a função, do outro lado do HTTPS.
+
+let adminUsers = null;
+let accountRows = [];
+let lastCredentials = '';
+
+function getAdminUsers() {
+  if (!adminUsers) {
+    adminUsers = createAdminUsers({
+      url: SUPABASE_URL,
+      anonKey: SUPABASE_ANON_KEY,
+      getToken: () => auth.getFreshAccessToken(),
+    });
+  }
+  return adminUsers;
+}
+
+function showCredentials(text) {
+  lastCredentials = text;
+  $('accCredsBody').textContent = text;
+  $('accCreds').classList.remove('hidden');
+}
+
+function renderAccountTable() {
+  const el = $('accountTable');
+  if (!accountRows.length) {
+    el.innerHTML = '<p class="muted">Sem contas nesta organização.</p>';
+    return;
+  }
+  const me = auth.getUser()?.id;
+  el.innerHTML = table(
+    ['E-mail', 'Nome', 'Papel', 'Último acesso', 'Acções'],
+    accountRows.map((u) => [
+      esc(u.email),
+      esc(u.full_name),
+      `<span class="pill ${u.role === 'admin' ? 'Confirmado' : 'Em-aberto'}">${esc(u.role)}</span>`,
+      u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString('pt-PT') : '<span class="muted">nunca</span>',
+      `<button class="btn warn" type="button" data-acc-reset="${esc(u.id)}">Repor palavra-passe</button> ` +
+      (u.id === me
+        ? '<span class="muted">esta é a sua conta</span>'
+        : `<button class="btn danger" type="button" data-acc-revoke="${esc(u.id)}">Revogar</button>`),
+    ]),
+  );
+}
+
+async function loadAccounts() {
+  const el = $('accountTable');
+  el.innerHTML = '<p class="muted">A carregar…</p>';
+  try {
+    const res = await getAdminUsers().list();
+    accountRows = res.users ?? [];
+    renderAccountTable();
+  } catch (err) {
+    accountRows = [];
+    el.innerHTML = `<p class="muted">${esc(err.message)}</p>`;
+  }
+}
+
+$('accountForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = $('accCreate');
+  btn.disabled = true;
+  try {
+    const created = await getAdminUsers().create({
+      email: $('accEmail').value,
+      fullName: $('accName').value,
+      role: $('accRole').value,
+    });
+    showCredentials(
+      `E-mail:    ${created.email}\n` +
+      `Palavra-passe: ${created.password}\n` +
+      `Papel:     ${created.role}\n\n` +
+      'Entregue estas credenciais ao funcionário. A palavra-passe não volta a ser mostrada.',
+    );
+    $('accountForm').reset();
+    $('accRole').value = 'operador';
+    showNotice('ok', `Conta criada para ${created.email}.`);
+    await loadAccounts();
+  } catch (err) {
+    showNotice('err', err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$('accCopy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(lastCredentials);
+    showNotice('ok', 'Credenciais copiadas para a área de transferência.');
+  } catch {
+    showNotice('err', 'Não foi possível copiar. Selecione o texto manualmente.');
+  }
+});
+
+$('accReload').addEventListener('click', loadAccounts);
+
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest('button');
+  if (!t) return;
+
+  if (t.dataset.accReset) {
+    if (!confirm('Gerar uma nova palavra-passe para esta conta? A actual deixa de funcionar.')) return;
+    t.disabled = true;
+    try {
+      const res = await getAdminUsers().reset(t.dataset.accReset);
+      showCredentials(
+        `E-mail:    ${accountRows.find((u) => u.id === res.id)?.email ?? '(conta)'}\n` +
+        `Nova palavra-passe: ${res.password}\n\n` +
+        'Entregue ao funcionário. A anterior deixa de funcionar de imediato.',
+      );
+      showNotice('ok', 'Palavra-passe reposta.');
+      window.scrollTo(0, 0);
+    } catch (err) {
+      showNotice('err', err.message);
+    } finally {
+      t.disabled = false;
+    }
+    return;
+  }
+
+  if (t.dataset.accRevoke) {
+    const alvo = accountRows.find((u) => u.id === t.dataset.accRevoke);
+    if (!confirm(`Revogar o acesso de ${alvo?.email ?? 'esta conta'}? Não poderá voltar a entrar.`)) return;
+    t.disabled = true;
+    try {
+      await getAdminUsers().revoke(t.dataset.accRevoke);
+      showNotice('ok', `Acesso revogado: ${alvo?.email ?? ''}.`);
+      await loadAccounts();
+    } catch (err) {
+      showNotice('err', err.message);
+      t.disabled = false;
+    }
+  }
 });
 
 // ── leitura e apresentação ───────────────────────────────────────────────────
@@ -535,12 +687,15 @@ setInterval(() => {
 // ── separadores ──────────────────────────────────────────────────────────────
 
 function switchTab(name) {
+  // Ninguém chega ao painel de equipa sem papel de administrador.
+  if (name === 'equipa' && state.role !== 'admin') name = 'painel';
   for (const b of document.querySelectorAll('[data-tab]')) {
     b.classList.toggle('active', b.dataset.tab === name);
   }
   for (const s of document.querySelectorAll('.tab')) {
     s.classList.toggle('hidden', s.id !== name);
   }
+  if (name === 'equipa') loadAccounts();
   render();
 }
 document.querySelectorAll('[data-tab]').forEach((b) => {
