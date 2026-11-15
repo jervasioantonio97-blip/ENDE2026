@@ -1,7 +1,7 @@
-# ENDE CONTROL — base de dados e sincronização
+# ENDE CONTROL — base de dados, sincronização e PWA
 
-Primeira camada do projeto: esquema Supabase, armazenamento local e motor de
-sincronização offline-first. A interface (PWA) vem depois, por cima disto.
+Aplicação offline-first de gestão interna: clientes, pagamentos e cobranças.
+Esquema Supabase, armazenamento local, motor de sincronização e interface PWA.
 
 ## O que está feito
 
@@ -19,7 +19,7 @@ sincronização offline-first. A interface (PWA) vem depois, por cima disto.
 | `scripts/seed.mjs` | Cria organização + perfil do primeiro admin |
 | `scripts/make-icons.mjs` | Gera os PNG do manifest (sem dependências) |
 | `tests/sync-engine.test.mjs` | 11 testes de comportamento do motor |
-| `tests/remote-supabase.test.mjs` | 17 testes do adaptador remoto |
+| `tests/remote-supabase.test.mjs` | 19 testes do adaptador remoto |
 
 O motor não conhece Supabase nem IndexedDB. Recebe dois adaptadores, por isso
 corre igual no telemóvel, no PC e nos testes.
@@ -66,7 +66,20 @@ Credenciais do cliente em `.env` (copiar de `.env.example`).
 
 ## Criar a primeira organização e o primeiro administrador
 
-Depois de criar um utilizador em Authentication → Users:
+O caminho curto é o script (chave de serviço só por ambiente, nunca no
+repositório):
+
+```pwsh
+$env:SUPABASE_URL = 'https://mpxlxrscmajgbreldrnd.supabase.co'
+$env:SUPABASE_SERVICE_ROLE_KEY = '<service_role>'
+$env:SEED_USER_EMAIL = 'admin@exemplo.com'
+$env:SEED_USER_PASSWORD = '<palavra-passe>'   # só se ainda não existir
+node scripts/seed.mjs
+```
+
+O script cria a organização, cria/valida o utilizador e garante o perfil
+`admin`. Equivalente manual, depois de criar o utilizador em Authentication →
+Users:
 
 ```sql
 insert into public.orgs (name) values ('ENDE') returning id;
