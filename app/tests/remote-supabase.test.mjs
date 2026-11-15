@@ -124,6 +124,20 @@ test('COLUMNS cobre exactamente as tabelas sincronizáveis', () => {
 
 // ── insert ───────────────────────────────────────────────────────────────────
 
+test('insert envia o id gerado localmente (identidade única)', async () => {
+  // Regressão: sem isto o servidor gera um id novo, o pull entrega a conta
+  // outra vez e o cliente vê duplicados.
+  const { remote, calls } = makeRemote(() => json(201, [{ id: 'r1', rev: 1, seq: 1 }]));
+  await remote.insert('clients', { id: 'r1', ref: 'L1', name: 'Ana' });
+  assert.equal(calls[0].body.id, 'r1');
+});
+
+test('update NÃO reenvia o id no corpo (identidade vem do URL)', async () => {
+  const { remote, calls } = makeRemote(() => json(200, [{ id: 'r1', rev: 2 }]));
+  await remote.update('clients', 'r1', { id: 'r1', ref: 'L1' }, 1);
+  assert.ok(!('id' in calls[0].body));
+});
+
 test('insert envia POST com Prefer: return=representation e a chave certa', async () => {
   const serverRow = { id: 'r1', rev: 1, seq: 1, org_id: ORG, ref: 'L1' };
   const { remote, calls } = makeRemote(() => json(201, [serverRow]));

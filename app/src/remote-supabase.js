@@ -135,20 +135,26 @@ export function createSupabaseRemote({
   }
 
   async function insert(table, row) {
-    const { res, body } = await request(`/rest/v1/${table}`, {
+    // O `id` é gerado ANTES de haver rede. O servidor tem de o aceitar tal
+    // como chega, senão local e servidor ficam com identidades diferentes e o
+    // pull entrega a mesma conta duas vezes (e as FKs de payments/bills falham).
+    const body = { ...toServer(table, row, getOrgId()) };
+    if (row.id) body.id = row.id;
+
+    const { res, body: created } = await request(`/rest/v1/${table}`, {
       method: 'POST',
       headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(toServer(table, row, getOrgId())),
+      body: JSON.stringify(body),
     });
 
-    if (res.ok && Array.isArray(body) && body.length > 0) {
-      return { ok: true, row: body[0] };
+    if (res.ok && Array.isArray(created) && created.length > 0) {
+      return { ok: true, row: created[0] };
     }
     if (res.status === 409) {
       // Referência única (clients_org_ref_live) ou id repetido.
-      throw conflictError(409, body, 'O servidor já tem este registo');
+      throw conflictError(409, created, 'O servidor já tem este registo');
     }
-    throw conflictError(res.status, body, `Não foi possível guardar em ${table}`);
+    throw conflictError(res.status, created, `Não foi possível guardar em ${table}`);
   }
 
   async function update(table, id, row, baseRev) {
