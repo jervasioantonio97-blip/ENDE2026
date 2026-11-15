@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#15385b">
+<meta name="description" content="ENDE CONTROL — gestão interna de clientes, cobranças e pagamentos, offline-first.">
+<title>ENDE CONTROL</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<style>
+:root{
+  --navy:#15385b; --blue:#21618c; --bg:#f3f6fa; --line:#dce4ec;
+  --ok:#287a50; --warn:#a45a16; --bad:#a83232; --idle:#607487;
+}
+*{box-sizing:border-box}
+body{margin:0;font:15px Arial,Helvetica,sans-serif;background:var(--bg);color:#1d2935}
+[hidden]{display:none!important}
+
+header{background:var(--navy);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;
+  align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:10}
+header h1{margin:0;font-size:20px}
+header .sub{opacity:.85;font-size:12px}
+.headtools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}
+
+.wrap{max-width:1250px;margin:auto;padding:16px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tabs button{border:0;border-radius:8px;padding:10px 14px;background:#dbe7f1;color:var(--navy);cursor:pointer;font:inherit}
+.tabs button.active{background:var(--navy);color:#fff}
+
+.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;
+  box-shadow:0 2px 8px rgba(23,54,93,.045)}
+.panel h3{margin:0 0 10px;font-size:16px;color:var(--navy)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.metric{background:#f6f9fc;border:1px solid var(--line);border-radius:10px;padding:14px;font-size:13px}
+.metric b{display:block;font-size:21px;margin-top:7px;color:var(--navy);word-break:break-word}
+
+label{display:block;font-size:13px;font-weight:bold;margin:8px 0 4px}
+input,select,textarea{width:100%;padding:10px;border:1px solid #cbd6e1;border-radius:7px;font:inherit;background:#fff}
+textarea{min-height:65px}
+input:focus,select:focus,textarea:focus{outline:2px solid #9dc2e6;outline-offset:1px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.btn{border:0;border-radius:8px;padding:10px 14px;background:var(--blue);color:#fff;cursor:pointer;font:inherit}
+.btn.secondary{background:var(--idle)} .btn.good{background:var(--ok)}
+.btn.warn{background:var(--warn)} .btn.danger{background:var(--bad)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.file{display:inline-block}
+
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:680px}
+th,td{padding:9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#edf3f8;color:var(--navy)}
+.tablewrap{overflow:auto;margin-top:12px}
+.muted{color:#637383;font-size:13px}
+.pill{padding:4px 9px;border-radius:20px;background:#eceff2;white-space:nowrap;font-size:12px}
+.pill.Pendente{background:#fff0c2} .pill.Confirmado{background:#dff2e5}
+.pill.Rejeitado{background:#f9dddd}
+.pill.Em-aberto{background:#e3edf7} .pill.Liquidada{background:#dff2e5}
+.pill.Parcial{background:#fff0c2} .pill.Anulada{background:#eceff2}
+.hidden{display:none}
+
+.notice{padding:11px 12px;background:#fff6df;border:1px solid #f1dda4;border-radius:9px;margin-bottom:14px;font-size:13.5px}
+.notice.err{background:#fdecec;border-color:#f0c2c2}
+.notice.ok{background:#eaf7ef;border-color:#bfe3cd}
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
+
+/* estado de sincronização */
+.sync{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.14);
+  border-radius:20px;padding:6px 11px;font-size:12.5px}
+.sync .dot{width:9px;height:9px;border-radius:50%;background:#9fb3c8;flex:none}
+.sync[data-state="syncing"] .dot{background:#ffd166;animation:pulse 1s infinite}
+.sync[data-state="ok"] .dot{background:#6ee7a0}
+.sync[data-state="offline"] .dot{background:#ffb4a2}
+.sync[data-state="error"] .dot{background:#ff8b8b}
+@keyframes pulse{50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.sync .dot{animation:none}}
+
+/* autenticação */
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.login .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px;width:100%;max-width:400px;
+  box-shadow:0 8px 30px rgba(23,54,93,.10)}
+.login h1{margin:0 0 4px;font-size:22px;color:var(--navy)}
+.login .brand{height:5px;background:var(--navy);border-radius:3px;width:56px;margin-bottom:18px}
+.login .btn{width:100%;margin-top:16px}
+.forgot{background:none;border:0;color:var(--blue);cursor:pointer;font:inherit;font-size:13px;padding:8px 0;text-align:left}
+
+footer{text-align:center;padding:16px;color:#637383;font-size:12.5px}
+.offlinebar{background:#a45a16;color:#fff;text-align:center;padding:7px;font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- ───────────────────────────── autenticação -->
+<section class="login" id="loginView" hidden>
+  <form class="card" id="loginForm" novalidate>
+    <div class="brand"></div>
+    <h1>ENDE CONTROL</h1>
+    <p class="muted" style="margin-top:0">Gestão interna de clientes, cobranças e pagamentos</p>
+
+    <div class="notice err hidden" id="loginError"></div>
+
+    <label for="loginEmail">E-mail</label>
+    <input id="loginEmail" type="email" autocomplete="username" required>
+    <label for="loginPassword">Palavra-passe</label>
+    <input id="loginPassword" type="password" autocomplete="current-password" required>
+    <button class="btn" type="submit" id="loginBtn">Entrar</button>
+    <button class="forgot" type="button" id="forgotBtn">Esqueci a palavra-passe</button>
+    <p class="muted" style="margin-bottom:0">Sem conta? Peça ao administrador para criar o seu acesso.</p>
+  </form>
+</section>
+
+<!-- ───────────────────────────── aplicação -->
+<div id="appView" hidden>
+  <div class="offlinebar hidden" id="offlineBar">Sem ligação — os dados ficam guardados neste dispositivo e sincronizam quando a rede voltar.</div>
+
+  <header>
+    <div>
+      <h1>ENDE CONTROL</h1>
+      <div class="sub">Gestão interna de clientes, cobranças e pagamentos</div>
+    </div>
+    <div class="headtools">
+      <span class="sync" id="syncPill" data-state="idle" role="status" aria-live="polite">
+        <span class="dot"></span><span id="syncText">Por sincronizar</span>
+      </span>
+      <button class="btn secondary" type="button" id="syncBtn">Sincronizar</button>
+      <span id="userEmail" class="sub"></span>
+      <button class="btn danger" type="button" id="logoutBtn">Sair</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="notice hidden" id="appNotice"></div>
+
+    <nav class="tabs">
+      <button class="active" type="button" data-tab="painel">Painel</button>
+      <button type="button" data-tab="clientes">Clientes</button>
+      <button type="button" data-tab="pagamentos">Pagamentos</button>
+      <button type="button" data-tab="cobrancas">Cobranças</button>
+      <button type="button" data-tab="dados">Importar / Exportar</button>
+    </nav>
+
+    <!-- Painel -->
+    <section id="painel" class="tab">
+      <div class="grid" id="metrics"></div>
+      <div class="panel">
+        <h3>Últimos pagamentos</h3>
+        <div class="tablewrap" id="recent"></div>
+      </div>
+      <div class="panel hidden" id="conflictsPanel">
+        <h3>Conflitos resolvidos</h3>
+        <p class="muted">O servidor é a fonte de verdade em pagamento já validado; nas restantes contas vence a alteração mais recente.</p>
+        <div class="tablewrap" id="conflictTable"></div>
+      </div>
+    </section>
+
+    <!-- Clientes -->
+    <section id="clientes" class="tab hidden">
+      <div class="panel">
+        <h3>Registar / editar cliente</h3>
+        <form id="clientForm">
+          <input type="hidden" id="clientId">
+          <div class="formgrid">
+            <div><label for="ref">Referência / LINHA *</label><input id="ref" required></div>
+            <div><label for="name">Nome do cliente *</label><input id="name" required></div>
+            <div><label for="contact">Contacto</label><input id="contact"></div>
+            <div><label for="whatsapp">WhatsApp</label><input id="whatsapp"></div>
+            <div><label for="iban">IBAN</label><input id="iban"></div>
+            <div><label for="year">Ano de controlo</label><input id="year" type="number" value="2026"></div>
+          </div>
+          <div class="actions">
+            <button class="btn" type="submit">Guardar cliente</button>
+            <button class="btn secondary" type="reset" id="clearClient">Limpar</button>
+          </div>
+        </form>
+      </div>
+      <div class="panel">
+        <label for="clientSearch">Pesquisar cliente</label>
+        <input id="clientSearch" placeholder="Nome ou referência">
+        <div class="tablewrap" id="clientTable"></div>
+      </div>
+    </section>
+
+    <!-- Pagamentos -->
+    <section id="pagamentos" class="tab hidden">
+      <div class="panel">
+        <h3>Registar pagamento</h3>
+        <form id="paymentForm">
+          <div class="formgrid">
+            <div><label for="payClient">Cliente *</label><select id="payClient" required></select></div>
+            <div><label for="period">Período (ex.: 11/2026) *</label><input id="period" placeholder="11/2026" required></div>
+            <div><label for="payDate">Data exacta *</label><input id="payDate" type="date" required></div>
+            <div><label for="amount">Valor (Kz) *</label><input id="amount" type="number" min="0.01" step="0.01" required></div>
+            <div><label for="method">Método</label><select id="method">
+              <option>Numerário</option><option>Transferência</option>
+              <option>Multicaixa/TPA</option><option>Depósito</option><option>Outro</option>
+            </select></div>
+            <div><label for="receipt">N.º / referência do comprovativo</label><input id="receipt"></div>
+            <div><label for="staff">Funcionário responsável</label><input id="staff"></div>
+            <div><label for="payNotes">Observações</label><input id="payNotes"></div>
+          </div>
+          <div class="actions"><button class="btn" type="submit">Registar como pendente</button></div>
+        </form>
+      </div>
+      <div class="panel">
+        <h3>Histórico e validação</h3>
+        <div class="formgrid">
+          <div><label for="payFilter">Filtrar estado</label><select id="payFilter">
+            <option>Todos</option><option>Pendente</option><option>Confirmado</option><option>Rejeitado</option>
+          </select></div>
+          <div><label for="paySearch">Pesquisar</label><input id="paySearch" placeholder="Cliente, referência ou comprovativo"></div>
+        </div>
+        <div class="tablewrap" id="paymentTable"></div>
+      </div>
+    </section>
+
+    <!-- Cobranças -->
+    <section id="cobrancas" class="tab hidden">
+      <div class="panel">
+        <h3>Registar cobrança</h3>
+        <form id="billForm">
+          <div class="formgrid">
+            <div><label for="billClient">Cliente *</label><select id="billClient" required></select></div>
+            <div><label for="billPeriod">Período *</label><input id="billPeriod" placeholder="11/2026" required></div>
+            <div><label for="issueDate">Data de emissão</label><input id="issueDate" type="date"></div>
+            <div><label for="dueDate">Data limite</label><input id="dueDate" type="date"></div>
+            <div><label for="billAmount">Valor cobrado (Kz) *</label><input id="billAmount" type="number" min="0.01" step="0.01" required></div>
+            <div><label for="origin">Origem</label><select id="origin"><option>Manual</option><option>Importado</option></select></div>
+            <div><label for="billStatus">Estado</label><select id="billStatus">
+              <option>Em aberto</option><option>Parcial</option><option>Liquidada</option><option>Anulada</option>
+            </select></div>
+            <div><label for="billNotes">Observações</label><input id="billNotes"></div>
+          </div>
+          <div class="actions"><button class="btn" type="submit">Guardar cobrança</button></div>
+        </form>
+      </div>
+      <div class="panel">
+        <h3>Lista de cobranças</h3>
+        <div class="tablewrap" id="billTable"></div>
+      </div>
+    </section>
+
+    <!-- Dados -->
+    <section id="dados" class="tab hidden">
+      <div class="panel">
+        <h3>Cópia de segurança</h3>
+        <p class="muted">Descarregue um JSON com clientes, pagamentos e cobranças. Guarde-o num local protegido.</p>
+        <div class="actions">
+          <button class="btn" type="button" id="backup">Exportar cópia JSON</button>
+          <label class="btn secondary file">Restaurar cópia JSON
+            <input id="restore" type="file" accept=".json,application/json" style="display:none">
+          </label>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Importar clientes por CSV</h3>
+        <p class="muted">Colunas esperadas: referencia,nome,contacto,whatsapp,iban,ano. UTF-8; a primeira linha são os cabeçalhos.</p>
+        <input id="csvFile" type="file" accept=".csv,text/csv">
+        <div class="actions">
+          <button class="btn" type="button" id="importCsv">Importar CSV</button>
+          <button class="btn secondary" type="button" id="exportCsv">Exportar clientes CSV</button>
+        </div>
+        <p id="importResult" class="muted"></p>
+      </div>
+      <div class="panel">
+        <h3>Estado da sincronização</h3>
+        <div class="grid">
+          <div class="metric">Alterações por enviar<b id="statPending">0</b></div>
+          <div class="metric">Conflitos registados<b id="statConflicts">0</b></div>
+          <div class="metric">Última sincronização<b id="statLast">—</b></div>
+        </div>
+        <div class="actions">
+          <button class="btn warn" type="button" id="syncBtn2">Sincronizar agora</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Limitações e segurança</h3>
+        <p>Os dados ficam neste dispositivo até sincronizar. Não existe validação bancária automática nem ligação directa à ENDE ou aos bancos. Exporte cópias de segurança regularmente.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>ENDE CONTROL • Ferramenta de controlo interno • Não substitui sistemas oficiais da ENDE ou dos bancos</footer>
+</div>
+
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>

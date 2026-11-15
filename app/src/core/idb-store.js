@@ -80,6 +80,21 @@ function createAdapter(db) {
       });
     },
 
+    /** Todas as linhas de uma tabela, para a interface. */
+    async listRecords(table) {
+      const t = tx([STORES.records], 'readonly');
+      const all = await request(
+        t.objectStore(STORES.records).index('byTable').getAll(table),
+      );
+      return all.map((entry) => entry.row);
+    },
+
+    /** Conflitos resolvidos, para auditoria no painel. */
+    async listConflicts() {
+      const t = tx([STORES.conflicts], 'readonly');
+      return request(t.objectStore(STORES.conflicts).getAll());
+    },
+
     async getPending(table, id) {
       const t = tx([STORES.outbox], 'readonly');
       const idx = t.objectStore(STORES.outbox).index('byRecord');

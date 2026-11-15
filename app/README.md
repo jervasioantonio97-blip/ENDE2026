@@ -8,15 +8,35 @@ sincronização offline-first. A interface (PWA) vem depois, por cima disto.
 | Ficheiro | Função |
 |---|---|
 | `supabase/migrations/0001_init.sql` | Tabelas, índices, triggers, RLS e permissões |
+| `index.html` + `src/app.js` | Interface da PWA (separadores, formulários, sync) |
+| `src/remote-supabase.js` | Adaptador `remote` contra o PostgREST |
+| `src/auth.js` | Sessão GoTrue: entrar, renovar token, sair |
+| `src/config.js` | URL e chave publishable (públicas por desenho) |
 | `src/core/sync-engine.js` | Push/pull, resolução de conflitos, cursor |
 | `src/core/idb-store.js` | Armazenamento local em IndexedDB |
 | `src/core/ids.js` | UUID com fallback para WebView sem contexto seguro |
-| `tests/sync-engine.test.mjs` | 11 testes de comportamento |
+| `sw.js` + `manifest.webmanifest` | Arranque offline e instalação como app |
+| `scripts/seed.mjs` | Cria organização + perfil do primeiro admin |
+| `scripts/make-icons.mjs` | Gera os PNG do manifest (sem dependências) |
+| `tests/sync-engine.test.mjs` | 11 testes de comportamento do motor |
+| `tests/remote-supabase.test.mjs` | 17 testes do adaptador remoto |
 
 O motor não conhece Supabase nem IndexedDB. Recebe dois adaptadores, por isso
 corre igual no telemóvel, no PC e nos testes.
 
-## Correr os testes
+## Correr a aplicação
+
+A interface está em `index.html` e é estática: não há build nem dependências.
+
+```pwsh
+cd app
+python -m http.server 8080   # ou qualquer servidor estático
+# http://localhost:8080/
+```
+
+Em produção é servida por GitHub Pages em `./app/`.
+
+## Testes
 
 ```pwsh
 cd app
@@ -83,8 +103,7 @@ minutos. Para auditoria formal seria necessário um relógio lógico (HLC).
 
 ## Próximo passo
 
-1. `src/remote-supabase.js` — adaptador real (`insert`/`update`/`pull`). O
-   esquema já está aplicado, por isso já há tabela para testar contra.
-2. Casca PWA: `index.html` + `manifest.webmanifest` + Service Worker, com os
-   separadores Clientes / Pagamentos / Cobranças e o indicador de sync.
-3. Depois, Capacitor para gerar o APK Android.
+1. Capacitor para gerar o APK Android a partir desta mesma casca.
+2. Convidar os restantes funcionários: criar utilizador em Authentication →
+   Users e, depois, o correspondente `profiles` (papel `operador`) — ver
+   secção acima. Enquanto não existir essa linha, o RLS devolve zero linhas.
