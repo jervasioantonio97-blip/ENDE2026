@@ -1,0 +1,17 @@
+# Credenciais locais — nunca entram no repositório
+contas-de-acesso.local.txt
+*.credentials.local.*
+
+# Segredos de ambiente
+.env
+.env.local
+.env.*.local
+
+# Dependências e artefactos
+node_modules/
+dist/
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db
