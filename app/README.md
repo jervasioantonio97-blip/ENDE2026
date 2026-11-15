@@ -11,6 +11,8 @@ Esquema Supabase, armazenamento local, motor de sincronização e interface PWA.
 | `index.html` + `src/app.js` | Interface da PWA (separadores, formulários, sync) |
 | `src/remote-supabase.js` | Adaptador `remote` contra o PostgREST |
 | `src/auth.js` | Sessão GoTrue: entrar, renovar token, sair |
+| `src/admin-users.js` | Cliente da Edge Function `admin-users` (painel de equipa) |
+| `supabase/functions/admin-users/index.ts` | Emite credenciais: criar, listar, repor, revogar |
 | `src/config.js` | URL e chave publishable (públicas por desenho) |
 | `src/core/sync-engine.js` | Push/pull, resolução de conflitos, cursor |
 | `src/core/idb-store.js` | Armazenamento local em IndexedDB |
@@ -20,6 +22,7 @@ Esquema Supabase, armazenamento local, motor de sincronização e interface PWA.
 | `scripts/make-icons.mjs` | Gera os PNG do manifest (sem dependências) |
 | `tests/sync-engine.test.mjs` | 11 testes de comportamento do motor |
 | `tests/remote-supabase.test.mjs` | 19 testes do adaptador remoto |
+| `tests/admin-users.test.mjs` | 15 testes do cliente do painel de equipa |
 
 O motor não conhece Supabase nem IndexedDB. Recebe dois adaptadores, por isso
 corre igual no telemóvel, no PC e nos testes.
@@ -103,6 +106,32 @@ políticas dependem de `current_org_id()`.
 - **Referência de cliente única** só entre clientes vivos (`deleted_at is null`).
 - **`rev`** detecta escrita concorrente; **`seq`** é o cursor de sincronização.
 
+## Painel de equipa (emitir credenciais)
+
+O separador **Equipa** (visível só a `admin`) cria, lista, repõe e revoga
+contas de funcionários — sem sair da aplicação.
+
+- Botão "Gerar credenciais" → cria o utilizador no GoTrue, escreve o
+  `profiles` com o `org_id` **do administrador que faz o pedido** e devolve
+  uma palavra-passe gerada no servidor (16 caracteres, sem 0/O nem 1/l/I).
+  A senha aparece uma única vez, com botão de copiar.
+- "Repor palavra-passe" → gera outra; a anterior deixa de valer.
+- "Revogar" → apaga o utilizador; `profiles` desaparece por cascade.
+  Ninguém se revoga a si próprio.
+
+A `service_role` vive **só** na Edge Function `admin-users`. O navegador envia
+apenas o JWT da sessão; a função valida o papel do pedido em `profiles` antes
+de qualquer operação. Papéis aceites: `admin` e `operador` (o mesmo CHECK do
+esquema).
+
+```pwsh
+supabase functions deploy admin-users --use-api   # sem Docker
+```
+
+O operador vê os separadores de trabalho mas **não** valida pagamentos (os
+botões Confirmar/Rejeitar não são renderizados) e não chega ao separador
+Equipa — a navegar para lá, cai no Painel.
+
 ## Como o conflito é resolvido
 
 1. Pagamento já validado no servidor → **servidor vence**, sempre.
@@ -117,6 +146,6 @@ minutos. Para auditoria formal seria necessário um relógio lógico (HLC).
 ## Próximo passo
 
 1. Capacitor para gerar o APK Android a partir desta mesma casca.
-2. Convidar os restantes funcionários: criar utilizador em Authentication →
-   Users e, depois, o correspondente `profiles` (papel `operador`) — ver
-   secção acima. Enquanto não existir essa linha, o RLS devolve zero linhas.
+2. Convidar os restantes funcionários pelo separador **Equipa** (só é preciso
+   estar logado como `admin`). Enquanto não existir linha em `profiles`, o RLS
+   devolve zero linhas.
