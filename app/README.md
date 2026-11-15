@@ -25,23 +25,21 @@ npm test
 
 Sem dependências, sem instalação.
 
-## Aplicar o esquema ao Supabase
+## Esquema aplicado ao Supabase
 
-O projeto `tbjqqpcyzlhuznbtgwqh` está actualmente **inacessível** (a base de
-dados não responde — sinal típico de projeto pausado no plano gratuito).
-Antes de qualquer coisa:
-
-1. Abrir o dashboard Supabase → projeto → **Restore project** (se estiver pausado).
-2. Confirmar que responde: `select 1;` no SQL Editor.
-3. Depois, uma destas:
+O esquema está **aplicado** no projeto `mpxlxrscmajgbreldrnd`
+(“GESTÃO DE COBRANÇAS ENDE”, região `eu-west-1`):
 
 ```pwsh
-# via CLI (requer login: supabase login)
-supabase link --project-ref tbjqqpcyzlhuznbtgwqh
-supabase db push
+supabase link --project-ref mpxlxrscmajgbreldrnd
+supabase db push          # aplica supabase/migrations/*.sql
+supabase migration list   # local 0001 = remoto 0001
 ```
 
-ou colar `supabase/migrations/0001_init.sql` no SQL Editor.
+Verificação: `GET https://mpxlxrscmajgbreldrnd.supabase.co/rest/v1/clients`
+devolve `200 []` — a tabela existe e o RLS devolve zero linhas ao anon.
+
+Credenciais do cliente em `.env` (copiar de `.env.example`).
 
 > O CLI local (`supabase start`) precisa de Docker. Este computador não tem
 > Docker instalado, por isso o desenvolvimento é contra o projeto remoto.
@@ -85,9 +83,8 @@ minutos. Para auditoria formal seria necessário um relógio lógico (HLC).
 
 ## Próximo passo
 
-1. `src/remote-supabase.js` — adaptador real (`insert`/`update`/`pull`) quando a
-   base de dados responder. Fica incompleto de propósito: nada para testar
-   enquanto o projeto está pausado.
+1. `src/remote-supabase.js` — adaptador real (`insert`/`update`/`pull`). O
+   esquema já está aplicado, por isso já há tabela para testar contra.
 2. Casca PWA: `index.html` + `manifest.webmanifest` + Service Worker, com os
    separadores Clientes / Pagamentos / Cobranças e o indicador de sync.
 3. Depois, Capacitor para gerar o APK Android.
