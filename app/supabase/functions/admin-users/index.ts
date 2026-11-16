@@ -7,9 +7,13 @@
 //
 // Contrato (POST JSON):
 //   { action: 'list' }
-//   { action: 'create', email, full_name, role, password? }
+//   { action: 'create', email, full_name, role, password?, client_id? }
 //   { action: 'reset', user_id }
 //   { action: 'revoke', user_id }
+//
+// Papel `cliente`: exige `client_id` (ficha de `clients` da mesma org). É a
+// ligação que permite ao RLS do portal limitar a leitura às linhas dessa
+// pessoa.
 //
 // Regras de segurança:
 //   * verify_jwt está activo: o gateway já validou a assinatura do JWT.
@@ -17,8 +21,8 @@
 //     nunca se confia no que o cliente diz ser.
 //   * `org_id` vem do perfil do ADMINISTRADOR que faz o pedido. O cliente não
 //     o escolhe: não há como criar contas noutra organização.
-//   * Só os papéis `admin` e `operador` são aceites (mesma restrição do CHECK
-//     do esquema). Sem papel de "cliente": decisão tomada com o utilizador.
+//   * Os papéis aceites são os do CHECK do esquema: `admin`, `operador` e
+//     `cliente` (este último exige `client_id` da mesma org).
 //   * Ninguém se revoga a si próprio.
 
 const URL_BASE = Deno.env.get('SUPABASE_URL') ?? '';
@@ -30,8 +34,9 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const ROLES = new Set(['admin', 'operador']);
+const ROLES = new Set(['admin', 'operador', 'cliente']);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -144,9 +149,10 @@ async function listAllUsers(): Promise<GoTrueUser[]> {
 }
 
 async function actionList(orgId: string): Promise<Response> {
-  const [users, profileRes] = await Promise.all([
+  const [users, profileRes, clientRes] = await Promise.all([
     listAllUsers(),
-    serviceFetch(`/rest/v1/profiles?org_id=eq.${orgId}&select=id,full_name,role&limit=1000`),
+    serviceFetch(`/rest/v1/profiles?org_id=eq.${orgId}&select=id,full_name,role,client_id&limit=1000`),
+    serviceFetch(`/rest/v1/clients?org_id=eq.${orgId}&select=id,name&limit=1000`),
   ]);
 
   if (!profileRes.ok) throw new Error(`Falha ao ler perfis (${profileRes.status})`);
@@ -154,8 +160,12 @@ async function actionList(orgId: string): Promise<Response> {
     id: string;
     full_name: string;
     role: string;
+    client_id: string | null;
   }>;
-  const byId = new Map(profiles.map((p) => [p.id, p]));
+  const clients = clientRes.ok
+    ? ((await clientRes.json()) as Array<{ id: string; name: string }>)
+    : [];
+  const clientName = new Map(clients.map((c) => [c.id, c.name]));
 
   // Só devolve utilizadores desta organização: quem não tem perfil na org
   // (incluindo outras orgs) não aparece no painel.
@@ -167,6 +177,8 @@ async function actionList(orgId: string): Promise<Response> {
         email: u?.email ?? '',
         full_name: p.full_name,
         role: p.role,
+        client_id: p.client_id,
+        client_name: p.client_id ? clientName.get(p.client_id) ?? null : null,
         created_at: u?.created_at ?? null,
         last_sign_in_at: u?.last_sign_in_at ?? null,
       };
@@ -174,7 +186,6 @@ async function actionList(orgId: string): Promise<Response> {
     .filter((r) => r.email)
     .sort((a, b) => a.email.localeCompare(b.email));
 
-  void byId;
   return json({ users: rows });
 }
 
@@ -197,10 +208,30 @@ async function actionCreate(
   const fullName = String(body.full_name ?? '').trim();
   const role = String(body.role ?? 'operador');
   const password = body.password ? String(body.password) : randomPassword();
+  const clientIdRaw = body.client_id ? String(body.client_id).trim() : '';
 
   if (!EMAIL_RE.test(email)) return json({ error: 'E-mail inválido.' }, 400);
-  if (!ROLES.has(role)) return json({ error: 'Papel inválido: use admin ou operador.' }, 400);
+  if (!ROLES.has(role)) return json({ error: 'Papel inválido: use admin, operador ou cliente.' }, 400);
   if (password.length < 8) return json({ error: 'A palavra-passe precisa de 8 caracteres.' }, 400);
+
+  // Papel `cliente` é obrigatoriamente ligado a uma ficha de clients da MESMA
+  // organização — sem isso o RLS do portal não tem por onde limitar as linhas.
+  let clientId: string | null = null;
+  if (role === 'cliente') {
+    if (!UUID_RE.test(clientIdRaw)) {
+      return json({ error: 'Conta de cliente exige um client_id válido.' }, 400);
+    }
+    const check = await serviceFetch(
+      `/rest/v1/clients?id=eq.${encodeURIComponent(clientIdRaw)}&org_id=eq.${orgId}&select=id&limit=1`,
+    );
+    const found = check.ok ? await check.json() : [];
+    if (!Array.isArray(found) || found.length === 0) {
+      return json({ error: 'Cliente não existe ou não pertence à sua organização.' }, 404);
+    }
+    clientId = clientIdRaw;
+  } else if (clientIdRaw) {
+    return json({ error: 'Só o papel cliente pode ter ficha ligada.' }, 400);
+  }
 
   const created = await serviceFetch('/auth/v1/admin/users', {
     method: 'POST',
@@ -230,6 +261,7 @@ async function actionCreate(
       org_id: orgId,
       full_name: fullName || email,
       role,
+      client_id: clientId,
     }),
   });
 
@@ -241,7 +273,7 @@ async function actionCreate(
     return json({ error: `Falha ao guardar o perfil (${profile.status}): ${text.slice(0, 200)}` }, 502);
   }
 
-  return json({ id: user.id, email, password, role, full_name: fullName });
+  return json({ id: user.id, email, password, role, full_name: fullName, client_id: clientId });
 }
 
 async function actionReset(body: Record<string, unknown>): Promise<Response> {

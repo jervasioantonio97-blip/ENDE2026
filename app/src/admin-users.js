@@ -4,10 +4,13 @@
 // serviço é a função, do outro lado do HTTPS.
 //
 // Contrato devolvido pela função:
-//   list()                 -> { users: [{ id, email, full_name, role, ... }] }
-//   create({ email, ... }) -> { id, email, password, role, full_name }
+//   list()                 -> { users: [{ id, email, full_name, role, client_id, ... }] }
+//   create({ email, ... }) -> { id, email, password, role, full_name, client_id }
 //   reset(userId)          -> { id, password }
 //   revoke(userId)         -> { id, revoked: true }
+//
+// Papel `cliente`: `create` recebe também `clientId` (obrigatório no
+// servidor). Papéis admin/operador não podem levar `client_id`.
 //
 // Todos os erros chegam como `Error` com a mensagem em português que a
 // função devolveu, para a interface poder mostrá-la tal e qual.
@@ -59,12 +62,13 @@ export function createAdminUsers({
   return {
     list: () => call({ action: 'list' }),
 
-    create({ email, fullName, role, password }) {
+    create({ email, fullName, role, password, clientId }) {
       return call({
         action: 'create',
         email: String(email ?? '').trim().toLowerCase(),
         full_name: String(fullName ?? '').trim(),
-        role: role ?? 'operador', // o servidor valida contra ('admin','operador')
+        role: role ?? 'operador', // o servidor valida contra ('admin','operador','cliente')
+        ...(clientId ? { client_id: String(clientId) } : {}),
         ...(password ? { password } : {}),
       });
     },

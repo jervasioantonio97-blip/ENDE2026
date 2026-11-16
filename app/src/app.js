@@ -96,6 +96,13 @@ async function enterApp() {
     return;
   }
 
+  // Conta de cliente: o painel de gestão não é para ela. O acesso é o portal.
+  if (state.role === 'cliente') {
+    await auth.signOut();
+    location.href = '../portal/';
+    return;
+  }
+
   $('loginView').hidden = true;
   $('appView').hidden = false;
   $('userEmail').textContent = `${user.email} · ${state.role}`;
@@ -208,7 +215,10 @@ function renderAccountTable() {
     accountRows.map((u) => [
       esc(u.email),
       esc(u.full_name),
-      `<span class="pill ${u.role === 'admin' ? 'Confirmado' : 'Em-aberto'}">${esc(u.role)}</span>`,
+      `<span class="pill ${u.role === 'admin' ? 'Confirmado' : 'Em-aberto'}">${esc(u.role)}</span>` +
+        (u.role === 'cliente'
+          ? `<div class="muted">${esc(u.client_name ?? 'sem ficha')}</div>`
+          : ''),
       u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString('pt-PT') : '<span class="muted">nunca</span>',
       `<button class="btn warn" type="button" data-acc-reset="${esc(u.id)}">Repor palavra-passe</button> ` +
       (u.id === me
@@ -234,21 +244,30 @@ async function loadAccounts() {
 $('accountForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = $('accCreate');
+  const role = $('accRole').value;
+  const clientId = $('accClient').value;
+  if (role === 'cliente' && !clientId) {
+    showNotice('err', 'Escolha a ficha de cliente a ligar a esta conta.');
+    return;
+  }
   btn.disabled = true;
   try {
     const created = await getAdminUsers().create({
       email: $('accEmail').value,
       fullName: $('accName').value,
-      role: $('accRole').value,
+      role,
+      clientId: role === 'cliente' ? clientId : '',
     });
     showCredentials(
       `E-mail:    ${created.email}\n` +
       `Palavra-passe: ${created.password}\n` +
-      `Papel:     ${created.role}\n\n` +
-      'Entregue estas credenciais ao funcionário. A palavra-passe não volta a ser mostrada.',
+      `Papel:     ${created.role}\n` +
+      (created.role === 'cliente' ? `Portal:    ${new URL('../portal/', location.href).href}\n` : '') +
+      '\nEntregue estas credenciais. A palavra-passe não volta a ser mostrada.',
     );
     $('accountForm').reset();
     $('accRole').value = 'operador';
+    toggleClientField();
     showNotice('ok', `Conta criada para ${created.email}.`);
     await loadAccounts();
   } catch (err) {
@@ -257,6 +276,15 @@ $('accountForm').addEventListener('submit', async (e) => {
     btn.disabled = false;
   }
 });
+
+// O selector de ficha só faz sentido para o papel `cliente`.
+function toggleClientField() {
+  const isClient = $('accRole').value === 'cliente';
+  $('accClientWrap').hidden = !isClient;
+  $('accClient').required = isClient;
+}
+
+$('accRole').addEventListener('change', toggleClientField);
 
 $('accCopy').addEventListener('click', async () => {
   try {
@@ -383,7 +411,7 @@ function fillClientSelects(clients) {
       .sort((a, b) => String(a.name).localeCompare(String(b.name)))
       .map((c) => `<option value="${esc(c.id)}">${esc(c.ref)} — ${esc(c.name)}</option>`)
       .join('');
-  for (const id of ['payClient', 'billClient']) {
+  for (const id of ['payClient', 'billClient', 'accClient']) {
     const el = $(id);
     const keep = el.value;
     el.innerHTML = options;
@@ -438,9 +466,13 @@ function renderPaymentTable(payments) {
 
 function renderBillTable(bills) {
   $('billTable').innerHTML = table(
-    ['Cliente', 'Período', 'Emissão', 'Vencimento', 'Valor', 'Origem', 'Estado', 'Acções'],
+    ['Cliente', 'Período', 'Emissão', 'Vencimento', 'Valor', 'Multa', 'Corte', 'Origem', 'Estado', 'Acções'],
     [...bills].reverse().map((b) => [
       esc(b.name), esc(b.period), esc(b.issue), esc(b.due), money(b.amount),
+      money(b.late_fee || 0),
+      b.cut
+        ? '<span class="pill Rejeitado">corte</span>'
+        : '<span class="muted">—</span>',
       esc(b.origin), `<span class="pill ${slug(b.status)}">${esc(b.status)}</span>`,
       `<button class="btn secondary" type="button" data-bill-cycle="${esc(b.id)}">Alterar estado</button> ` +
       `<button class="btn danger" type="button" data-bill-del="${esc(b.id)}">Apagar</button>`,
@@ -552,6 +584,8 @@ $('billForm').addEventListener('submit', (e) => {
   if (!client) return fail('Escolha um cliente.');
   const amount = Number($('billAmount').value);
   if (!(amount > 0)) return fail('O valor tem de ser maior que zero.');
+  const lateFee = Number($('billLateFee').value || 0);
+  if (!(lateFee >= 0)) return fail('A multa de atraso não pode ser negativa.');
 
   commit(() => state.engine.write('bills', {
     id: uuid(),
@@ -563,6 +597,8 @@ $('billForm').addEventListener('submit', (e) => {
     issue: $('issueDate').value || null,
     due: $('dueDate').value || null,
     amount,
+    late_fee: lateFee,
+    cut: $('billCut').value === 'true',
     origin: $('origin').value,
     status: $('billStatus').value,
     notes: $('billNotes').value.trim(),

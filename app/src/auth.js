@@ -15,6 +15,7 @@ export function createAuth({
   url,
   anonKey,
   storage = defaultStorage(),
+  storageKey = STORAGE_KEY,
   fetchFn = (...args) => fetch(...args),
   now = () => Date.now(),
 }) {
@@ -25,7 +26,7 @@ export function createAuth({
   function read() {
     if (!storage) return null;
     try {
-      const raw = storage.getItem(STORAGE_KEY);
+      const raw = storage.getItem(storageKey);
       return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
@@ -35,8 +36,8 @@ export function createAuth({
   function write(next) {
     session = next;
     if (storage) {
-      if (next) storage.setItem(STORAGE_KEY, JSON.stringify(next));
-      else storage.removeItem(STORAGE_KEY);
+      if (next) storage.setItem(storageKey, JSON.stringify(next));
+      else storage.removeItem(storageKey);
     }
     for (const fn of listeners) {
       try {

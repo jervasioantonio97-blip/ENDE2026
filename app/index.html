@@ -225,6 +225,8 @@ footer{text-align:center;padding:16px;color:#637383;font-size:12.5px}
             <div><label for="issueDate">Data de emissão</label><input id="issueDate" type="date"></div>
             <div><label for="dueDate">Data limite</label><input id="dueDate" type="date"></div>
             <div><label for="billAmount">Valor cobrado (Kz) *</label><input id="billAmount" type="number" min="0.01" step="0.01" required></div>
+            <div><label for="billLateFee">Multa de atraso (Kz)</label><input id="billLateFee" type="number" min="0" step="0.01" value="0"></div>
+            <div><label for="billCut">Corte</label><select id="billCut"><option value="false">Sem corte</option><option value="true">Corte aplicado</option></select></div>
             <div><label for="origin">Origem</label><select id="origin"><option>Manual</option><option>Importado</option></select></div>
             <div><label for="billStatus">Estado</label><select id="billStatus">
               <option>Em aberto</option><option>Parcial</option><option>Liquidada</option><option>Anulada</option>
@@ -283,7 +285,7 @@ footer{text-align:center;padding:16px;color:#637383;font-size:12.5px}
     <section id="equipa" class="tab hidden">
       <div class="panel">
         <h3>Emitir credenciais de acesso</h3>
-        <p class="muted">A palavra-passe é gerada no servidor e mostrada uma única vez. Entregue-a ao funcionário por um canal seguro.</p>
+        <p class="muted">A palavra-passe é gerada no servidor e mostrada uma única vez. Entregue-a por um canal seguro. O papel <strong>cliente</strong> abre o portal em <code>/portal/</code> e fica ligado à ficha escolhida.</p>
         <form id="accountForm">
           <div class="formgrid">
             <div><label for="accEmail">E-mail do funcionário *</label><input id="accEmail" type="email" autocomplete="off" required></div>
@@ -291,7 +293,10 @@ footer{text-align:center;padding:16px;color:#637383;font-size:12.5px}
             <div><label for="accRole">Papel *</label><select id="accRole">
               <option value="operador">Operador — vê tudo, não valida pagamentos</option>
               <option value="admin">Administrador — valida pagamentos e gere equipa</option>
+              <option value="cliente">Cliente — portal próprio (só vê os seus meses)</option>
             </select></div>
+            <div id="accClientWrap" hidden><label for="accClient">Ficha do cliente *</label>
+              <select id="accClient"></select></div>
           </div>
           <div class="actions">
             <button class="btn" type="submit" id="accCreate">Gerar credenciais</button>

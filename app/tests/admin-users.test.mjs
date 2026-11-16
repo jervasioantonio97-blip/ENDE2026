@@ -129,6 +129,30 @@ test('create sem role leva operador por omissão', async () => {
   assert.equal(calls[0].body.role, 'operador');
 });
 
+test('create de cliente inclui client_id no payload', async () => {
+  const { calls, admin } = makeClient(() => json(200, {}));
+  const clientId = '3ebc0f9a-9827-41e9-abeb-dfd828f015c3';
+  await admin.create({
+    email: 'cliente@exemplo.com',
+    fullName: 'Cliente Teste',
+    role: 'cliente',
+    clientId,
+  });
+  assert.deepEqual(calls[0].body, {
+    action: 'create',
+    email: 'cliente@exemplo.com',
+    full_name: 'Cliente Teste',
+    role: 'cliente',
+    client_id: clientId,
+  });
+});
+
+test('create sem clientId não envia client_id (papéis admin/operador)', async () => {
+  const { calls, admin } = makeClient(() => json(200, {}));
+  await admin.create({ email: 'op@exemplo.com', role: 'operador', clientId: '' });
+  assert.equal('client_id' in calls[0].body, false);
+});
+
 test('reset envia action e user_id', async () => {
   const { calls, admin } = makeClient(() => json(200, {}));
   const id = 'b79ab832-7a7d-49d2-bd3b-c666a1ea10d6';

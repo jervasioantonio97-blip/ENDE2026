@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#15385b">
+<meta name="description" content="ENDE — Portal do cliente: meses pagos, pendentes, multa de atraso e corte.">
+<meta name="robots" content="noindex">
+<title>ENDE — Portal do Cliente</title>
+<link rel="icon" href="../app/icons/icon.svg" type="image/svg+xml">
+<style>
+:root{
+  --navy:#15385b; --blue:#21618c; --bg:#f3f6fa; --line:#dce4ec;
+  --ok:#287a50; --warn:#a45a16; --bad:#a83232; --idle:#607487;
+}
+*{box-sizing:border-box}
+body{margin:0;font:15px Arial,Helvetica,sans-serif;background:var(--bg);color:#1d2935}
+[hidden]{display:none!important}
+
+header{background:var(--navy);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;
+  align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:10}
+header h1{margin:0;font-size:19px}
+header .sub{opacity:.85;font-size:12px}
+
+.wrap{max-width:960px;margin:auto;padding:16px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;
+  box-shadow:0 2px 8px rgba(23,54,93,.045)}
+.panel h3{margin:0 0 10px;font-size:16px;color:var(--navy)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.metric{background:#f6f9fc;border:1px solid var(--line);border-radius:10px;padding:14px;font-size:13px}
+.metric b{display:block;font-size:21px;margin-top:7px;color:var(--navy);word-break:break-word}
+.metric.alert b{color:var(--bad)}
+
+.muted{color:#637383;font-size:13px}
+.pill{padding:4px 9px;border-radius:20px;background:#eceff2;white-space:nowrap;font-size:12px}
+.pill.Pago{background:#dff2e5} .pill.Pendente{background:#fff0c2}
+.pill.corte{background:#f9dddd} .pill.multa{background:#fff0c2}
+.hidden{display:none}
+
+.notice{padding:11px 12px;background:#fff6df;border:1px solid #f1dda4;border-radius:9px;margin-bottom:14px;font-size:13.5px}
+.notice.err{background:#fdecec;border-color:#f0c2c2}
+.notice.ok{background:#eaf7ef;border-color:#bfe3cd}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{background:#edf3f8;color:var(--navy)}
+.tablewrap{overflow:auto}
+
+label{display:block;font-size:13px;font-weight:bold;margin:8px 0 4px}
+input{width:100%;padding:10px;border:1px solid #cbd6e1;border-radius:7px;font:inherit;background:#fff}
+input:focus{outline:2px solid #9dc2e6;outline-offset:1px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.btn{border:0;border-radius:8px;padding:10px 14px;background:var(--blue);color:#fff;cursor:pointer;font:inherit}
+.btn.secondary{background:var(--idle)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.login .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px;width:100%;max-width:400px;
+  box-shadow:0 8px 30px rgba(23,54,93,.10)}
+.login h1{margin:0 0 4px;font-size:22px;color:var(--navy)}
+.login .brand{height:5px;background:var(--navy);border-radius:3px;width:56px;margin-bottom:18px}
+.login .btn{width:100%;margin-top:16px}
+
+.yearhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:4px 0 6px}
+.yearhead h4{margin:0;font-size:15px;color:var(--navy)}
+footer{text-align:center;padding:16px;color:#637383;font-size:12.5px}
+</style>
+</head>
+<body>
+
+<!-- ───────────────────────────── autenticação -->
+<section class="login" id="loginView" hidden>
+  <form class="card" id="loginForm" novalidate>
+    <div class="brand"></div>
+    <h1>Portal do Cliente</h1>
+    <p class="muted" style="margin-top:0">ENDE — consulte os seus meses pagos, pendentes, multas e corte</p>
+
+    <div class="notice err hidden" id="loginError"></div>
+
+    <label for="loginEmail">E-mail</label>
+    <input id="loginEmail" type="email" autocomplete="username" required>
+    <label for="loginPassword">Palavra-passe</label>
+    <input id="loginPassword" type="password" autocomplete="current-password" required>
+    <button class="btn" type="submit" id="loginBtn">Entrar</button>
+    <p class="muted" style="margin-bottom:0">Sem acesso? Peça as suas credenciais ao administrador.</p>
+  </form>
+</section>
+
+<!-- ───────────────────────────── portal -->
+<div id="portalView" hidden>
+  <header>
+    <div>
+      <h1>Portal do Cliente</h1>
+      <div class="sub" id="clientSub">ENDE</div>
+    </div>
+    <div class="actions" style="margin-top:0">
+      <button class="btn secondary" type="button" id="refreshBtn">Actualizar</button>
+      <button class="btn secondary" type="button" id="logoutBtn">Sair</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="notice err hidden" id="portalError"></div>
+
+    <div class="panel">
+      <h3>Resumo</h3>
+      <div class="grid">
+        <div class="metric">Meses pagos<b id="mPaid">0</b></div>
+        <div class="metric">Meses pendentes<b id="mPending">0</b></div>
+        <div class="metric">Valor pendente (Kz)<b id="mPendingTotal">0</b></div>
+        <div class="metric" id="mFeeBox">Multa de atraso (Kz)<b id="mFee">0</b></div>
+        <div class="metric" id="mCutBox">Corte<b id="mCut">Não</b></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Meses pagos</h3>
+      <div id="paidYears"><p class="muted">Sem registos de pagamento.</p></div>
+    </div>
+
+    <div class="panel">
+      <h3>Meses pendentes</h3>
+      <div id="pendingBox"><p class="muted">Nada pendente — está tudo em dia.</p></div>
+    </div>
+
+    <p class="muted">Vista informativa. Os valores e estados são os registados pela ENDE; para pagamentos ou regularizações, use os canais oficiais.</p>
+  </main>
+
+  <footer>ENDE — Portal do Cliente • Consulta exclusiva dos seus registos</footer>
+</div>
+
+<script type="module" src="./src/portal.js"></script>
+</body>
+</html>

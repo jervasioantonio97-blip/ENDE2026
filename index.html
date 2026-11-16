@@ -3,12 +3,56 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="refresh" content="0; url=./app/">
+<meta name="theme-color" content="#15385b">
 <title>ENDE CONTROL</title>
-<link rel="canonical" href="./app/">
+<link rel="icon" href="./app/icons/icon.svg" type="image/svg+xml">
+<style>
+:root{--navy:#15385b;--blue:#21618c;--bg:#f3f6fa;--line:#dce4ec;--idle:#607487}
+*{box-sizing:border-box}
+body{margin:0;font:15px Arial,Helvetica,sans-serif;background:var(--bg);color:#1d2935;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:28px;width:100%;max-width:460px;
+  box-shadow:0 8px 30px rgba(23,54,93,.10)}
+.brand{height:5px;background:var(--navy);border-radius:3px;width:56px;margin-bottom:18px}
+h1{margin:0 0 4px;font-size:23px;color:var(--navy)}
+p{margin:0 0 16px}
+.muted{color:#637383;font-size:13.5px}
+a.choice{display:block;text-decoration:none;color:inherit;border:1px solid var(--line);border-radius:10px;
+  padding:14px 16px;margin-bottom:10px;background:#f6f9fc;transition:border-color .15s,background .15s}
+a.choice:hover{border-color:var(--blue);background:#eef4fa}
+a.choice strong{display:block;color:var(--navy);font-size:15.5px;margin-bottom:3px}
+footer{margin-top:14px;text-align:center;color:#637383;font-size:12px}
+</style>
 </head>
 <body>
-<p>A abrir <a href="./app/">ENDE CONTROL</a>…</p>
-<p class="muted">A aplicação antiga continua disponível em <a href="./ENDE_CONTROL.html">ENDE_CONTROL.html</a> (modo local, sem sincronização).</p>
+<div class="card">
+  <div class="brand"></div>
+  <h1>ENDE CONTROL</h1>
+  <p class="muted">Escolha o portal:</p>
+
+  <a class="choice" href="./app/?portal=admin">
+    <strong>Administrador</strong>
+    <span class="muted">Gestão de clientes, pagamentos, cobranças e equipa</span>
+  </a>
+
+  <a class="choice" href="./portal/?portal=cliente">
+    <strong>Cliente</strong>
+    <span class="muted">Consultar meses pagos, pendentes, multa de atraso e corte</span>
+  </a>
+
+  <footer>ENDE CONTROL • Acesso por credenciais emitidas pelo administrador</footer>
+</div>
+
+<script>
+// Router por parâmetro: ?portal=admin -> ./app/  |  ?portal=cliente -> ./portal/
+// Sem parâmetro (ou inválido), mantém-se esta página de escolha.
+(function () {
+  var param = new URLSearchParams(location.search).get('portal');
+  var dest = param === 'admin' ? './app/' : param === 'cliente' ? './portal/' : null;
+  if (!dest) return;
+  // Preserva o parâmetro na aplicação de destino (mantém o link partilhável).
+  location.replace(dest + location.search);
+})();
+</script>
 </body>
 </html>

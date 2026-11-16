@@ -25,12 +25,12 @@ export const COLUMNS = Object.freeze({
   ]),
   bills: Object.freeze([
     'org_id', 'client_id', 'ref', 'name', 'period', 'issue', 'due', 'amount',
-    'origin', 'status', 'notes', 'deleted_at',
+    'late_fee', 'cut', 'origin', 'status', 'notes', 'deleted_at',
   ]),
 });
 
 const INTEGER_COLUMNS = new Set(['year']);
-const NUMERIC_COLUMNS = new Set(['amount']);
+const NUMERIC_COLUMNS = new Set(['amount', 'late_fee']);
 const DATE_COLUMNS = new Set(['date', 'issue', 'due']);
 
 /** Converte uma coluna do modelo local para o tipo que o PostgREST espera. */
@@ -45,7 +45,7 @@ export function coerce(column, value) {
   return raw;
 }
 
-const NOT_NULL = new Set(['date', 'amount', 'year', 'org_id']);
+const NOT_NULL = new Set(['date', 'amount', 'late_fee', 'year', 'org_id']);
 
 /** projecta a linha local nas colunas que o servidor aceita. */
 export function toServer(table, row, orgId) {
