@@ -7,7 +7,7 @@
 //   * Petições a outros domínios (Supabase) não são interceptadas: o RLS e a
 //     sessão não podem ser servidos da cache, e guardá-las só atrasa a sync.
 
-const CACHE = 'ende-control-v1';
+const CACHE = 'ende-control-v2';
 
 const SHELL = [
   './',
