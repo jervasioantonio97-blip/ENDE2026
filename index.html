@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#08182c">
+<meta name="theme-color" content="#06201f">
 <title>ENDE CONTROL</title>
 <link rel="icon" href="./app/icons/icon.svg" type="image/svg+xml">
 <script>
@@ -28,7 +28,7 @@
   --muted:rgba(210,230,248,.64);
   --faint:rgba(190,215,240,.45);
   --line:rgba(255,255,255,.14);
-  --accent:#5fb4f5;
+  --accent:#5eead4;
   --display:"Space Grotesk",system-ui,"Segoe UI",sans-serif;
   --body:"Inter",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
   color-scheme:dark;
@@ -39,14 +39,14 @@ body{
   margin:0;min-height:100vh;min-height:100svh;
   font:400 16px/1.55 var(--body);color:var(--ink);
   background:
-    radial-gradient(1200px 800px at 82% -10%,rgba(45,120,185,.34),transparent 60%),
-    radial-gradient(900px 700px at -8% 104%,rgba(16,96,138,.4),transparent 62%),
-    linear-gradient(168deg,#0a1c33 0%,#08182c 55%,#061222 100%);
+    radial-gradient(1200px 800px at 82% -10%,rgba(20,184,166,.32),transparent 60%),
+    radial-gradient(900px 700px at -8% 104%,rgba(11,140,130,.38),transparent 62%),
+    linear-gradient(168deg,#0a2a28 0%,#06201f 55%,#041514 100%);
   background-attachment:fixed;
   display:flex;align-items:center;justify-content:center;
   overflow-x:hidden;
 }
-::selection{background:rgba(95,180,245,.35)}
+::selection{background:rgba(45,212,191,.35)}
 
 /* ---------- fundo 3D: orbs, grelha de piso, grão ---------- */
 .bg{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
@@ -57,18 +57,18 @@ body{
   animation:breathe 9s ease-in-out infinite;
 }
 .o1{width:46vmax;height:46vmax;top:-18vmax;right:-10vmax;--d:26;
-  background:radial-gradient(circle,rgba(61,143,241,.5),transparent 65%)}
+  background:radial-gradient(circle,rgba(45,212,191,.44),transparent 65%)}
 .o2{width:40vmax;height:40vmax;bottom:-16vmax;left:-12vmax;--d:34;animation-delay:-3s;
-  background:radial-gradient(circle,rgba(20,120,160,.5),transparent 65%)}
+  background:radial-gradient(circle,rgba(11,140,130,.5),transparent 65%)}
 .o3{width:26vmax;height:26vmax;top:38%;left:44%;--d:16;animation-delay:-6s;opacity:.34;
-  background:radial-gradient(circle,rgba(96,104,232,.42),transparent 65%)}
+  background:radial-gradient(circle,rgba(94,234,212,.36),transparent 65%)}
 @keyframes breathe{0%,100%{scale:1}50%{scale:1.12}}
 
 .floor{
   position:absolute;left:-35%;right:-35%;bottom:-8%;height:46vh;
   background-image:
-    linear-gradient(rgba(120,180,255,.15) 1px,transparent 1px),
-    linear-gradient(90deg,rgba(120,180,255,.12) 1px,transparent 1px);
+    linear-gradient(rgba(120,240,225,.15) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(120,240,225,.12) 1px,transparent 1px);
   background-size:64px 64px;
   transform:perspective(640px) rotateX(64deg);
   transform-origin:50% 100%;
@@ -81,7 +81,7 @@ body{
 /* ---------- ícones flutuantes (parallax + balanço) ---------- */
 .scene{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:1}
 .chip{
-  position:absolute;display:grid;place-items:center;color:#bfe0ff;
+  position:absolute;display:grid;place-items:center;color:#c8f5ec;
   transform:translate3d(calc(var(--px) * var(--d) * 1px),calc(var(--py) * var(--d) * 1px),0);
   transition:transform .7s cubic-bezier(.2,.7,.2,1);
 }
@@ -92,7 +92,7 @@ body{
   -webkit-backdrop-filter:blur(14px) saturate(140%);
   backdrop-filter:blur(14px) saturate(140%);
   box-shadow:0 16px 36px -16px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.28),
-             0 0 34px rgba(61,143,241,.18);
+             0 0 34px rgba(45,212,191,.18);
   animation:bob 7s ease-in-out infinite;
   fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
 }
@@ -129,7 +129,7 @@ body::after{
   -webkit-backdrop-filter:blur(16px);
   backdrop-filter:blur(16px);
   box-shadow:0 20px 44px -18px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.35),
-             0 0 46px rgba(61,143,241,.3);
+             0 0 46px rgba(45,212,191,.3);
   display:grid;place-items:center;
   animation:rise .7s .05s cubic-bezier(.2,.7,.2,1) both,bob 8s 1.2s ease-in-out infinite;
 }
@@ -138,7 +138,7 @@ h1{
   font-family:var(--display);font-weight:700;
   font-size:clamp(2.5rem,7vw,4.5rem);line-height:1.03;letter-spacing:-.03em;
   margin:26px 0 0;
-  background:linear-gradient(180deg,#fff 32%,#9fc6ea);
+  background:linear-gradient(180deg,#fff 32%,#a7f3e8);
   -webkit-background-clip:text;background-clip:text;color:transparent;
   animation:rise .7s .14s cubic-bezier(.2,.7,.2,1) both;
 }
@@ -151,14 +151,14 @@ h1{
   display:flex;align-items:center;gap:14px;
   margin:clamp(30px,5vh,48px) 0 18px;
   font-size:.73rem;font-weight:600;letter-spacing:.24em;text-transform:uppercase;
-  color:rgba(160,200,240,.72);
+  color:rgba(180,240,230,.72);
   animation:rise .7s .3s cubic-bezier(.2,.7,.2,1) both;
 }
 .eyebrow::before,.eyebrow::after{
   content:"";width:52px;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(140,195,245,.55));
+  background:linear-gradient(90deg,transparent,rgba(120,230,215,.55));
 }
-.eyebrow::after{background:linear-gradient(90deg,rgba(140,195,245,.55),transparent)}
+.eyebrow::after{background:linear-gradient(90deg,rgba(120,230,215,.55),transparent)}
 
 /* ---------- cartões de portal (glass + tilt 3D) ---------- */
 .cards{display:flex;gap:22px;width:100%;justify-content:center}
@@ -194,20 +194,20 @@ a.portal::after{
 }
 a.portal:hover,a.portal:focus-visible{--lift:-6px}
 a.portal:hover::before,a.portal:focus-visible::before{
-  border-color:rgba(140,200,250,.5);
+  border-color:rgba(94,234,212,.5);
   box-shadow:0 40px 80px -30px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.38),
-             0 0 0 1px rgba(95,180,245,.18),0 14px 50px -18px rgba(61,143,241,.55);
+             0 0 0 1px rgba(94,234,212,.18),0 14px 50px -18px rgba(20,184,166,.55);
 }
 a.portal:hover::after,a.portal:focus-visible::after{opacity:1}
 a.portal:active{--lift:-2px;scale:.985}
-a.portal:focus-visible{outline:2px solid #7cc2ff;outline-offset:4px}
+a.portal:focus-visible{outline:2px solid #5eead4;outline-offset:4px}
 
 .picon{
   flex:none;width:56px;height:56px;border-radius:16px;
-  display:grid;place-items:center;color:#e4f2ff;
-  background:linear-gradient(160deg,rgba(95,180,245,.3),rgba(45,120,190,.12));
-  border:1px solid rgba(150,205,255,.35);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 12px 28px -12px rgba(61,143,241,.8);
+  display:grid;place-items:center;color:#e4fff9;
+  background:linear-gradient(160deg,rgba(45,212,191,.3),rgba(11,140,130,.12));
+  border:1px solid rgba(150,240,230,.35);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 12px 28px -12px rgba(20,184,166,.8);
   transform:translateZ(46px);
   transition:scale .3s cubic-bezier(.2,.7,.2,1),box-shadow .3s;
 }
@@ -216,7 +216,7 @@ a.portal:focus-visible{outline:2px solid #7cc2ff;outline-offset:4px}
   stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
 }
 a.portal:hover .picon{scale:1.07;box-shadow:inset 0 1px 0 rgba(255,255,255,.5),
-  0 16px 34px -12px rgba(61,143,241,1),0 0 30px rgba(61,143,241,.45)}
+  0 16px 34px -12px rgba(20,184,166,1),0 0 30px rgba(45,212,191,.45)}
 .ptext{flex:1;min-width:0;transform:translateZ(24px)}
 .ptitle{
   display:flex;align-items:center;gap:8px;
@@ -225,14 +225,14 @@ a.portal:hover .picon{scale:1.07;box-shadow:inset 0 1px 0 rgba(255,255,255,.5),
 .pdesc{display:block;margin-top:7px;font-size:.93rem;line-height:1.5;color:var(--muted)}
 .parrow{
   flex:none;width:38px;height:38px;border-radius:50%;
-  display:grid;place-items:center;color:#9fd0f8;
+  display:grid;place-items:center;color:#9fe8dc;
   border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);
   transform:translateZ(34px);
   transition:translate .25s cubic-bezier(.2,.7,.2,1),background .25s,border-color .25s;
 }
 .parrow svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;
   stroke-linecap:round;stroke-linejoin:round}
-a.portal:hover .parrow{translate:4px 0;background:rgba(95,180,245,.16);border-color:rgba(140,200,250,.5)}
+a.portal:hover .parrow{translate:4px 0;background:rgba(45,212,191,.16);border-color:rgba(94,234,212,.5)}
 
 footer{
   margin-top:clamp(34px,6vh,64px);max-width:600px;
@@ -285,14 +285,14 @@ footer{
 <main class="hero">
   <div class="logo" aria-hidden="true">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-      <rect width="512" height="512" rx="96" fill="#15385b"/>
+      <rect width="512" height="512" rx="96" fill="#0a3a35"/>
       <g fill="#ffffff">
         <rect x="154" y="138" width="46" height="236"/>
         <rect x="154" y="138" width="215" height="46"/>
         <rect x="154" y="233" width="184" height="46"/>
         <rect x="154" y="328" width="215" height="46"/>
       </g>
-      <rect x="154" y="396" width="215" height="18" rx="9" fill="#3d8fd1"/>
+      <rect x="154" y="396" width="215" height="18" rx="9" fill="#2dd4bf"/>
     </svg>
   </div>
 
@@ -336,46 +336,8 @@ footer{
 (function () {
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // --- som de clique sintetizado (Web Audio, sem ficheiro externo) ---
-  var ctx = null;
-  function clickSound() {
-    try {
-      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') ctx.resume();
-      var t = ctx.currentTime;
-      var osc = ctx.createOscillator();
-      var g = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(780, t);
-      osc.frequency.exponentialRampToValueAtTime(240, t + 0.07);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.1, t + 0.006);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
-      osc.connect(g); g.connect(ctx.destination);
-      osc.start(t); osc.stop(t + 0.15);
-      // tick curto de "cristal" por cima do tom
-      var len = Math.floor(ctx.sampleRate * 0.03);
-      var buf = ctx.createBuffer(1, len, ctx.sampleRate);
-      var data = buf.getChannelData(0);
-      for (var i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
-      var src = ctx.createBufferSource(); src.buffer = buf;
-      var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1900;
-      var ng = ctx.createGain(); ng.gain.setValueAtTime(0.05, t);
-      ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-      src.connect(hp); hp.connect(ng); ng.connect(ctx.destination);
-      src.start(t);
-    } catch (e) { /* sem áudio disponível — a navegação segue na mesma */ }
-  }
-
-  // --- ligações: toca o som e navega logo a seguir (o som é ouvido) ---
-  Array.prototype.forEach.call(document.querySelectorAll('a.portal'), function (a) {
-    a.addEventListener('click', function (e) {
-      if (e.defaultPrevented || e.button > 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      e.preventDefault();
-      clickSound();
-      setTimeout(function () { location.href = a.getAttribute('href'); }, 110);
-    });
-  });
+  // (O som de clique sintetizado foi removido a pedido — as ligações
+  // navegam directamente, sem atraso.)
 
   if (reduce) return;
 

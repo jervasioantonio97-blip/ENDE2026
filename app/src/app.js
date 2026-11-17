@@ -15,6 +15,8 @@ import { createAdminUsers } from './admin-users.js';
 import { createSyncEngine, TABLES } from './core/sync-engine.js';
 import { openStore } from './core/idb-store.js';
 import { uuid } from './core/ids.js';
+import { buildReport, reportCSV, scopeLabel, isAdvance, rowPeriod, periodLabel } from './report.js';
+import { balanceChart } from './charts.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) =>
@@ -38,6 +40,8 @@ const state = {
   pending: 0,
   syncing: false,
   lastSync: null,
+  reportScope: { kind: 'all' },
+  reportYear: new Date().getFullYear(),
 };
 
 // ── autenticação ─────────────────────────────────────────────────────────────
@@ -368,13 +372,17 @@ async function refresh() {
 
 function render() {
   const clients = live(state.clients);
-  const payments = state.payments;
-  const bills = state.bills;
+  const payments = live(state.payments);
+  const bills = live(state.bills);
 
   const confirmed = payments.filter((p) => p.status === 'Confirmado').reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const pendingAmount = payments.filter((p) => p.status === 'Pendente').reduce((s, p) => s + (Number(p.amount) || 0), 0);
   const billed = bills.filter((b) => b.status !== 'Anulada').reduce((s, b) => s + (Number(b.amount) || 0), 0);
   const open = bills.filter((b) => b.status === 'Em aberto' || b.status === 'Parcial').reduce((s, b) => s + (Number(b.amount) || 0), 0);
+
+  const advances = payments
+    .filter((p) => isAdvance(p))
+    .reduce((s, p) => s + (Number(p.amount) || 0), 0);
 
   $('metrics').innerHTML = [
     ['Clientes registados', clients.length],
@@ -383,13 +391,22 @@ function render() {
     ['Pagamentos pendentes', money(pendingAmount)],
     ['Cobranças em aberto/parciais', money(open)],
     ['Movimentos pendentes', payments.filter((p) => p.status === 'Pendente').length],
+    ['Adiantamentos (período futuro)', money(advances)],
   ].map(([k, v]) => `<div class="metric">${k}<b>${esc(v)}</b></div>`).join('');
 
   $('recent').innerHTML = table(
     ['Data', 'Cliente', 'Período', 'Valor', 'Estado'],
     [...payments].sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 5)
-      .map((p) => [p.date, p.name, p.period, money(p.amount), `<span class="pill ${slug(p.status)}">${esc(p.status)}</span>`]),
+      .map((p) => [
+        p.date, p.name, rowPeriod(p), money(p.amount),
+        `<span class="pill ${slug(p.status)}">${esc(p.status)}</span>` +
+          (isAdvance(p) ? ' <span class="pill Adiantamento">Adiantamento</span>' : ''),
+      ]),
   );
+
+  // Balanço mensal (ganhos e perdas) — todos os períodos, sempre visível.
+  $('balanceChart').innerHTML = balanceChart(buildReport({ payments, bills }).months);
+  if (!$('relatorios').classList.contains('hidden')) renderReport();
 
   fillClientSelects(clients);
   renderClientTable(clients);
@@ -445,14 +462,17 @@ function renderClientTable(clients) {
 function renderPaymentTable(payments) {
   const filter = $('payFilter').value;
   const q = ($('paySearch').value || '').trim().toLowerCase();
+  const pf = ($('payPeriod').value || '').trim();
   const rows = [...payments]
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
     .filter((p) => (filter === 'Todos' || p.status === filter))
+    .filter((p) => !pf || rowPeriod(p).startsWith(pf))
     .filter((p) => `${p.name} ${p.ref} ${p.receipt}`.toLowerCase().includes(q))
     .map((p) => [
-      esc(p.date), esc(p.name), esc(p.period), money(p.amount), esc(p.method),
+      esc(p.date), esc(p.name), esc(rowPeriod(p)), money(p.amount), esc(p.method),
       esc(p.receipt), esc(p.staff),
-      `<span class="pill ${slug(p.status)}">${esc(p.status)}</span>`,
+      `<span class="pill ${slug(p.status)}">${esc(p.status)}</span>` +
+        (isAdvance(p) ? ' <span class="pill Adiantamento">Adiantamento</span>' : ''),
       p.status === 'Pendente' && state.role === 'admin'
         ? `<button class="btn good" type="button" data-pay="${esc(p.id)}" data-status="Confirmado">Confirmar</button> ` +
           `<button class="btn danger" type="button" data-pay="${esc(p.id)}" data-status="Rejeitado">Rejeitar</button>`
@@ -555,6 +575,10 @@ $('paymentForm').addEventListener('submit', (e) => {
   const amount = Number($('amount').value);
   if (!(amount > 0)) return fail('O valor tem de ser maior que zero.');
   if (!$('payDate').value) return fail('Indique a data do pagamento.');
+  const period = $('period').value.trim();
+  if (!/^(0[1-9]|1[0-2])\/\d{4}$/.test(period)) {
+    return fail('Período inválido: use MM/AAAA (ex.: 11/2026).');
+  }
 
   commit(() => state.engine.write('payments', {
     id: uuid(),
@@ -562,7 +586,7 @@ $('paymentForm').addEventListener('submit', (e) => {
     client_id: client.id,
     ref: client.ref,
     name: client.name,
-    period: $('period').value.trim(),
+    period,
     date: $('payDate').value,
     amount,
     method: $('method').value,
@@ -586,6 +610,10 @@ $('billForm').addEventListener('submit', (e) => {
   if (!(amount > 0)) return fail('O valor tem de ser maior que zero.');
   const lateFee = Number($('billLateFee').value || 0);
   if (!(lateFee >= 0)) return fail('A multa de atraso não pode ser negativa.');
+  const period = $('billPeriod').value.trim();
+  if (!/^(0[1-9]|1[0-2])\/\d{4}$/.test(period)) {
+    return fail('Período inválido: use MM/AAAA (ex.: 11/2026).');
+  }
 
   commit(() => state.engine.write('bills', {
     id: uuid(),
@@ -593,7 +621,7 @@ $('billForm').addEventListener('submit', (e) => {
     client_id: client.id,
     ref: client.ref,
     name: client.name,
-    period: $('billPeriod').value.trim(),
+    period,
     issue: $('issueDate').value || null,
     due: $('dueDate').value || null,
     amount,
@@ -631,14 +659,8 @@ document.addEventListener('click', async (e) => {
   if (t.dataset.pay) {
     const p = state.payments.find((x) => x.id === t.dataset.pay);
     if (!p) return;
-    const who = prompt('Nome de quem valida este pagamento:');
-    if (who === null) return;
-    await commit(() => state.engine.write('payments', {
-      id: p.id,
-      status: t.dataset.status,
-      validated_by: who.trim(),
-      validated_at: new Date().toISOString(),
-    }));
+    if (state.role !== 'admin') return showNotice('err', 'Só o administrador valida pagamentos.');
+    openPayModal(p);
     return;
   }
 
@@ -655,6 +677,62 @@ document.addEventListener('click', async (e) => {
     if (!confirm('Apagar esta cobrança?')) return;
     await commit(() => state.engine.write('bills', { id: t.dataset.billDel, deleted_at: new Date().toISOString() }));
   }
+});
+
+// ── validação de pagamentos (modal) ──────────────────────────────────────────
+//
+// Substitui o prompt() nativo: lançava "prompt() is not supported" dentro do
+// listener assíncrono e o clique não fazia nada, sem erro visível.
+
+let payAction = null;
+
+function openPayModal(payment) {
+  payAction = { id: payment.id };
+  $('payModalTitle').textContent = 'Validar pagamento';
+  $('payModalSummary').innerHTML =
+    `<b>${esc(payment.name)}</b> · ref. ${esc(payment.ref)}<br>` +
+    `Período ${esc(rowPeriod(payment))} · ${money(payment.amount)} · ${esc(payment.method)}` +
+    (isAdvance(payment) ? '<br><span class="pill Adiantamento">Adiantamento</span>' : '');
+  // Pré-preenche com a sessão actual; o utilizador pode escrever o nome.
+  $('payModalWho').value = ($('userEmail').textContent || '').split(' · ')[0];
+  $('payModalError').classList.add('hidden');
+  $('payModal').classList.remove('hidden');
+  $('payModalWho').focus();
+}
+
+function closePayModal() {
+  $('payModal').classList.add('hidden');
+  payAction = null;
+}
+
+async function confirmPayModal(status) {
+  if (!payAction) return;
+  const who = $('payModalWho').value.trim();
+  if (!who) {
+    const err = $('payModalError');
+    err.textContent = 'Indique o nome de quem valida este pagamento.';
+    err.classList.remove('hidden');
+    $('payModalWho').focus();
+    return;
+  }
+  const { id } = payAction;
+  closePayModal();
+  await commit(() => state.engine.write('payments', {
+    id,
+    status,
+    validated_by: who,
+    validated_at: new Date().toISOString(),
+  }));
+}
+
+$('payModalOk').addEventListener('click', () => confirmPayModal('Confirmado'));
+$('payModalNo').addEventListener('click', () => confirmPayModal('Rejeitado'));
+$('payModalCancel').addEventListener('click', closePayModal);
+$('payModal').addEventListener('click', (e) => {
+  if (e.target === $('payModal')) closePayModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && payAction) closePayModal();
 });
 
 // ── sincronização ────────────────────────────────────────────────────────────
@@ -738,7 +816,7 @@ document.querySelectorAll('[data-tab]').forEach((b) => {
   b.addEventListener('click', () => switchTab(b.dataset.tab));
 });
 
-for (const id of ['clientSearch', 'paySearch', 'payFilter']) {
+for (const id of ['clientSearch', 'paySearch', 'payFilter', 'payPeriod']) {
   $(id).addEventListener('input', render);
 }
 
@@ -851,6 +929,137 @@ $('importCsv').addEventListener('click', async () => {
   await refresh();
   $('importResult').textContent = `Importados: ${count}. Referências duplicadas ignoradas: ${dups}.`;
   doSync();
+});
+
+// ── relatórios (âmbito + calendário + CSV + impressão) ──────────────────────
+
+const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+function renderCalendar() {
+  $('calYear').textContent = String(state.reportYear);
+  const now = new Date();
+  const nowIdx = now.getFullYear() * 12 + now.getMonth();
+  $('calGrid').innerHTML = Array.from({ length: 12 }, (_, i) => {
+    const key = `${String(i + 1).padStart(2, '0')}/${state.reportYear}`;
+    const active = state.reportScope.kind === 'month' && state.reportScope.month === key;
+    const future = state.reportYear * 12 + i > nowIdx;
+    return (
+      `<button type="button" data-month="${key}"${active ? ' class="active"' : ''}>` +
+      `${MONTHS_SHORT[i]}<small>${future ? 'futuro' : key}</small></button>`
+    );
+  }).join('');
+  for (const b of $('scopeBar').querySelectorAll('button')) {
+    const on = b.dataset.scope === 'all'
+      ? state.reportScope.kind === 'all'
+      : state.reportScope.kind === 'year';
+    b.classList.toggle('active', on);
+  }
+  $('calHint').textContent =
+    state.reportScope.kind === 'month' ? periodLabel(state.reportScope.month)
+      : state.reportScope.kind === 'year' ? `Ano ${state.reportScope.year}`
+        : 'Todo o período';
+}
+
+const REPORT_HEADS = {
+  resumo: ['Indicador', 'Valor'],
+  pagamentos: ['Data', 'Cliente', 'Período', 'Valor', 'Método', 'Estado', 'Tipo', 'Validado por'],
+  cobrancas: ['Período', 'Cliente', 'Valor', 'Multa', 'Vencimento', 'Estado'],
+  clientes: ['Referência', 'Nome', 'Cobrado', 'Recebido', 'Pendente', 'Balanço'],
+  metodos: ['Método', 'N.º pagamentos', 'Total'],
+  meses: ['Período', 'Ganhos (recebido)', 'Perdas (cobrado)', 'Balanço'],
+};
+
+function reportRows(type, r) {
+  const bal = (v) => `<span class="balance ${v >= 0 ? 'pos' : 'neg'}">${money(v)}</span>`;
+  if (type === 'pagamentos') {
+    return r.payments.map((p) => [
+      esc(p.date), esc(p.name), esc(rowPeriod(p)), money(p.amount), esc(p.method),
+      `<span class="pill ${slug(p.status)}">${esc(p.status)}</span>`,
+      isAdvance(p) ? '<span class="pill Adiantamento">Adiantamento</span>' : '<span class="muted">Normal</span>',
+      esc(p.validated_by || '—'),
+    ]);
+  }
+  if (type === 'cobrancas') {
+    return r.bills.map((b) => [
+      esc(rowPeriod(b)), esc(b.name), money(b.amount), money(b.late_fee || 0),
+      esc(b.due || '—'), `<span class="pill ${slug(b.status)}">${esc(b.status)}</span>`,
+    ]);
+  }
+  if (type === 'clientes') {
+    return r.clients.map((c) => [
+      esc(c.ref), esc(c.name), money(c.billed), money(c.received), money(c.pending), bal(c.balance),
+    ]);
+  }
+  if (type === 'metodos') {
+    return r.methods.map((m) => [esc(m.method), String(m.count), money(m.total)]);
+  }
+  if (type === 'meses') {
+    return r.months.map((m) => [esc(periodLabel(m.month)), money(m.received), money(m.billed), bal(m.balance)]);
+  }
+  const t = r.totals;
+  return [
+    ['Cobrado (perdas)', money(t.billed)],
+    ['Recebido (ganhos)', money(t.received)],
+    ['Balanço (ganhos − perdas)', bal(t.balance)],
+    ['Pendente de validação', money(t.pending)],
+    ['Rejeitado', money(t.rejected)],
+    ['Adiantamentos (período futuro)', money(t.advance)],
+    ['Em aberto por cliente', money(t.open)],
+    ['Movimentos de pagamento no âmbito', String(r.payments.length)],
+    ['Cobranças emitidas no âmbito', String(r.bills.length)],
+  ];
+}
+
+function renderReport() {
+  renderCalendar();
+  const type = $('reportType').value;
+  const r = buildReport({ payments: state.payments, bills: state.bills, scope: state.reportScope });
+  const t = r.totals;
+  $('reportStats').innerHTML = [
+    ['Cobrado', money(t.billed)],
+    ['Recebido (ganhos)', money(t.received)],
+    ['Balanço', `<span class="balance ${t.balance >= 0 ? 'pos' : 'neg'}">${money(t.balance)}</span>`],
+    ['Pendente', money(t.pending)],
+    ['Adiantamentos', money(t.advance)],
+  ].map(([k, v]) => `<div class="metric">${k}<b>${v}</b></div>`).join('');
+  $('reportTable').innerHTML = table(REPORT_HEADS[type], reportRows(type, r));
+}
+
+$('scopeBar').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-scope]');
+  if (!b) return;
+  state.reportScope = b.dataset.scope === 'year'
+    ? { kind: 'year', year: state.reportYear }
+    : { kind: 'all' };
+  renderReport();
+});
+
+$('calGrid').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-month]');
+  if (!b) return;
+  state.reportScope = { kind: 'month', month: b.dataset.month };
+  renderReport();
+});
+
+$('calPrev').addEventListener('click', () => {
+  state.reportYear -= 1;
+  if (state.reportScope.kind === 'year') state.reportScope = { kind: 'year', year: state.reportYear };
+  renderReport();
+});
+
+$('calNext').addEventListener('click', () => {
+  state.reportYear += 1;
+  if (state.reportScope.kind === 'year') state.reportScope = { kind: 'year', year: state.reportYear };
+  renderReport();
+});
+
+$('reportType').addEventListener('change', renderReport);
+$('reportPrint').addEventListener('click', () => window.print());
+
+$('reportCsv').addEventListener('click', () => {
+  const type = $('reportType').value;
+  const r = buildReport({ payments: state.payments, bills: state.bills, scope: state.reportScope });
+  download(`ende-${type}-${scopeLabel(state.reportScope)}.csv`, reportCSV(type, r), 'text/csv;charset=utf-8');
 });
 
 // ── arranque ─────────────────────────────────────────────────────────────────

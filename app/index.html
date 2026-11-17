@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#08182c">
+<meta name="theme-color" content="#06201f">
 <meta name="description" content="ENDE CONTROL — gestão interna de clientes, cobranças e pagamentos, offline-first.">
 <title>ENDE CONTROL</title>
 <link rel="manifest" href="./manifest.webmanifest">
@@ -20,8 +20,8 @@
   --line:rgba(255,255,255,.14);
   --glass:rgba(255,255,255,.07);
   --glass2:rgba(255,255,255,.12);
-  --accent:#5fb4f5;
-  --navy:#0a1c33; --blue:#3d8ff1; --ok:#2f9e6a; --warn:#c47f1a; --bad:#d9534f; --idle:#64748b;
+  --accent:#5eead4;
+  --navy:#0a2a28; --blue:#14b8a6; --ok:#157a52; --warn:#8a5a12; --bad:#a83232; --idle:#64748b;
   --display:"Space Grotesk",system-ui,"Segoe UI",sans-serif;
   --body:"Inter",system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
   color-scheme:dark;
@@ -32,14 +32,14 @@ body{
   margin:0;min-height:100vh;min-height:100svh;
   font:400 15px/1.55 var(--body);color:var(--ink);
   background:
-    radial-gradient(1100px 760px at 84% -10%,rgba(45,120,185,.34),transparent 60%),
-    radial-gradient(860px 660px at -8% 104%,rgba(16,96,138,.4),transparent 62%),
-    linear-gradient(168deg,#0a1c33 0%,#08182c 55%,#061222 100%);
+    radial-gradient(1100px 760px at 84% -10%,rgba(20,184,166,.30),transparent 60%),
+    radial-gradient(860px 660px at -8% 104%,rgba(11,140,130,.36),transparent 62%),
+    linear-gradient(168deg,#0a2a28 0%,#06201f 55%,#041514 100%);
   background-attachment:fixed;
   overflow-x:hidden;
 }
 [hidden]{display:none!important}
-::selection{background:rgba(95,180,245,.35)}
+::selection{background:rgba(45,212,191,.35)}
 
 /* grão subtil por cima de tudo */
 body::after{
@@ -51,7 +51,7 @@ header{
   position:sticky;top:0;z-index:10;
   display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
   padding:13px 20px;
-  background:rgba(8,20,38,.72);
+  background:rgba(4,24,22,.72);
   -webkit-backdrop-filter:blur(16px) saturate(150%);
   backdrop-filter:blur(16px) saturate(150%);
   border-bottom:1px solid var(--line);
@@ -73,9 +73,9 @@ header .sub{color:var(--muted);font-size:12px}
 .tabs button:hover{background:var(--glass2);color:var(--ink);transform:translateY(-1px)}
 .tabs button:active{transform:translateY(0) scale(.98)}
 .tabs button.active{
-  background:linear-gradient(145deg,rgba(95,180,245,.34),rgba(95,180,245,.14));
-  border-color:rgba(95,180,245,.6);color:#fff;font-weight:600;
-  box-shadow:0 10px 24px -14px rgba(95,180,245,.9),inset 0 1px 0 rgba(255,255,255,.3);
+  background:linear-gradient(145deg,rgba(45,212,191,.30),rgba(45,212,191,.12));
+  border-color:rgba(45,212,191,.6);color:#fff;font-weight:600;
+  box-shadow:0 10px 24px -14px rgba(45,212,191,.9),inset 0 1px 0 rgba(255,255,255,.3);
 }
 
 .panel{
@@ -99,18 +99,18 @@ label{display:block;font-size:12.5px;font-weight:600;margin:8px 0 4px;color:var(
 input,select,textarea{
   width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:9px;
   font:400 14.5px var(--body);color:var(--ink);
-  background:rgba(2,10,22,.5);
+  background:rgba(2,16,15,.5);
   transition:border-color .16s ease,box-shadow .16s ease,background .16s ease;
 }
 textarea{min-height:65px}
 input::placeholder,textarea::placeholder{color:var(--faint)}
 input:hover,select:hover,textarea:hover{border-color:rgba(255,255,255,.3)}
 input:focus,select:focus,textarea:focus{
-  outline:none;border-color:rgba(95,180,245,.75);
-  background:rgba(2,10,22,.72);
-  box-shadow:0 0 0 3px rgba(95,180,245,.22);
+  outline:none;border-color:rgba(94,234,212,.75);
+  background:rgba(2,16,15,.72);
+  box-shadow:0 0 0 3px rgba(94,234,212,.22);
 }
-select option{background:#0a1c33;color:var(--ink)}
+select option{background:#0a2a28;color:var(--ink)}
 input[type=file]{padding:8px}
 input[type=file]::file-selector-button{
   border:1px solid var(--line);border-radius:8px;padding:7px 12px;margin-right:10px;cursor:pointer;
@@ -119,23 +119,23 @@ input[type=file]::file-selector-button{
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center}
 .btn{
   border:1px solid rgba(255,255,255,.22);border-radius:10px;padding:10px 15px;cursor:pointer;
-  font:600 13.5px var(--body);color:#fff;
-  background:linear-gradient(145deg,#4f9cf5,#2f6fd0);
-  box-shadow:0 12px 26px -16px rgba(47,111,208,.95),inset 0 1px 0 rgba(255,255,255,.35);
+  font:600 13.5px var(--body);color:#04211f;
+  background:linear-gradient(145deg,#2dd4bf,#14b8a6);
+  box-shadow:0 12px 26px -16px rgba(20,184,166,.95),inset 0 1px 0 rgba(255,255,255,.35);
   transition:transform .16s ease,filter .16s ease,box-shadow .16s ease;
 }
 .btn:hover{transform:translateY(-1px);filter:brightness(1.08)}
 .btn:active{transform:translateY(0) scale(.98)}
 .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn.secondary{background:linear-gradient(145deg,rgba(255,255,255,.16),rgba(255,255,255,.07));color:var(--ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.25)}
-.btn.good{background:linear-gradient(145deg,#2f9e6a,#1f7a50);box-shadow:0 12px 26px -16px rgba(31,122,80,.95),inset 0 1px 0 rgba(255,255,255,.3)}
-.btn.warn{background:linear-gradient(145deg,#c47f1a,#96600f);box-shadow:0 12px 26px -16px rgba(150,96,15,.95),inset 0 1px 0 rgba(255,255,255,.3)}
-.btn.danger{background:linear-gradient(145deg,#d9534f,#ad3936);box-shadow:0 12px 26px -16px rgba(173,57,54,.95),inset 0 1px 0 rgba(255,255,255,.3)}
+.btn.good{background:linear-gradient(145deg,#17855a,#116444);color:#fff;box-shadow:0 12px 26px -16px rgba(17,100,68,.95),inset 0 1px 0 rgba(255,255,255,.3)}
+.btn.warn{background:linear-gradient(145deg,#8a5a12,#6b4508);color:#fff;box-shadow:0 12px 26px -16px rgba(107,69,8,.95),inset 0 1px 0 rgba(255,255,255,.3)}
+.btn.danger{background:linear-gradient(145deg,#a83232,#842626);color:#fff;box-shadow:0 12px 26px -16px rgba(132,38,38,.95),inset 0 1px 0 rgba(255,255,255,.3)}
 .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;filter:none}
 .btn.file{display:inline-block}
 label.btn{cursor:pointer}
 
-.tablewrap{overflow:auto;margin-top:12px;border:1px solid var(--line);border-radius:12px;background:rgba(2,10,22,.35)}
+.tablewrap{overflow:auto;margin-top:12px;border:1px solid var(--line);border-radius:12px;background:rgba(2,16,15,.35)}
 .tablewrap:empty{display:none}
 .tablewrap::-webkit-scrollbar{height:8px;width:8px}
 .tablewrap::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:8px}
@@ -160,6 +160,7 @@ tbody tr:hover td{background:rgba(255,255,255,.05)}
 .pill.Rejeitado{background:#f9dddd;color:#8a2222}
 .pill.Em-aberto{background:#e3edf7;color:#1c4a78} .pill.Liquidada{background:#dff2e5;color:#175e3a}
 .pill.Parcial{background:#fff0c2;color:#5b4300} .pill.Anulada{background:#eceff2;color:#4a5560}
+.pill.Adiantamento{background:#cfeee9;color:#0a4a41}
 .hidden{display:none}
 
 .notice{
@@ -199,19 +200,82 @@ code{background:rgba(255,255,255,.14);border:1px solid var(--line);border-radius
 }
 .login .card::before{
   content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
-  background:radial-gradient(340px circle at var(--mx,50%) var(--my,30%),rgba(95,180,245,.18),transparent 62%);
+  background:radial-gradient(340px circle at var(--mx,50%) var(--my,30%),rgba(45,212,191,.18),transparent 62%);
   opacity:0;transition:opacity .3s ease;
 }
 .login .card:hover::before{opacity:1}
 .login .card>*{position:relative;z-index:1}
 .login h1{margin:0 0 4px;font:700 22px var(--display);letter-spacing:-.02em;color:var(--ink)}
-.login .brand{height:5px;background:linear-gradient(90deg,var(--accent),#3d8ff1);border-radius:3px;width:56px;margin-bottom:18px;box-shadow:0 0 18px rgba(95,180,245,.7)}
+.login .brand{height:5px;background:linear-gradient(90deg,var(--accent),#14b8a6);border-radius:3px;width:56px;margin-bottom:18px;box-shadow:0 0 18px rgba(45,212,191,.7)}
 .login .btn{width:100%;margin-top:16px}
 .forgot{background:none;border:0;color:var(--accent);cursor:pointer;font:500 13px var(--body);padding:8px 0;text-align:left}
 .forgot:hover{text-decoration:underline}
 
 footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.5px;position:relative;z-index:1}
 .offlinebar{background:linear-gradient(90deg,#b45309,#c2410c);color:#fff;text-align:center;padding:8px;font-size:13px;font-weight:600;position:relative;z-index:1}
+
+/* validação de pagamentos (modal glass) */
+.modal{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:20px;
+  background:rgba(2,10,12,.66);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.modal.hidden{display:none}
+.modal .sheet{
+  width:100%;max-width:450px;border-radius:16px;padding:20px;
+  background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,.06));
+  border:1px solid rgba(255,255,255,.22);
+  -webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
+  box-shadow:0 40px 90px -50px rgba(0,0,0,1),inset 0 1px 0 rgba(255,255,255,.35);
+}
+.modal h3{margin:0 0 4px;font:600 16px var(--display);color:var(--ink)}
+.modal .summary{margin:10px 0 0;padding:11px 12px;border-radius:10px;background:rgba(2,16,15,.5);
+  border:1px solid var(--line);font-size:13.5px;color:var(--ink);line-height:1.7}
+.modal .summary b{color:var(--accent)}
+
+/* relatórios: calendário de períodos */
+.cal{display:flex;flex-direction:column;gap:10px}
+.calhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.calhead h4{margin:0;font:600 15px var(--display);color:var(--ink);min-width:130px;text-align:center}
+.calgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:8px}
+.calgrid button{
+  border:1px solid var(--line);border-radius:10px;padding:11px 8px;cursor:pointer;
+  font:600 13px var(--body);color:var(--muted);background:var(--glass);
+  transition:transform .14s ease,border-color .14s ease,color .14s ease,background .14s ease;
+}
+.calgrid button:hover{background:var(--glass2);color:var(--ink);transform:translateY(-1px)}
+.calgrid button.active{
+  background:linear-gradient(145deg,rgba(45,212,191,.32),rgba(45,212,191,.12));
+  border-color:rgba(45,212,191,.65);color:#fff;
+  box-shadow:0 10px 22px -14px rgba(45,212,191,.9),inset 0 1px 0 rgba(255,255,255,.3);
+}
+.calgrid button small{display:block;font-weight:400;font-size:11px;color:var(--faint);margin-top:3px}
+.scopebar{display:flex;gap:8px;flex-wrap:wrap}
+.scopebar button{
+  border:1px solid var(--line);border-radius:20px;padding:7px 14px;cursor:pointer;
+  font:600 12.5px var(--body);color:var(--muted);background:var(--glass);
+}
+.scopebar button.active{
+  background:linear-gradient(145deg,rgba(45,212,191,.32),rgba(45,212,191,.12));
+  border-color:rgba(45,212,191,.65);color:#fff;
+}
+.reportstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
+.reportstats .metric b{font-size:17px}
+.balance.pos b,.balance.pos{color:#7ef0c6} .balance.neg{color:#ff9b8b}
+
+/* gráfico de balanço */
+.chartbox svg{width:100%;height:auto;display:block}
+
+/* impressão: só o conteúdo, sem chrome */
+@media print{
+  body{background:#fff;color:#111}
+  body::after,.tabs,.headtools,.offlinebar,footer,.actions,.scopebar,.cal,.modal,#conflictsPanel{display:none!important}
+  header{position:static;background:#fff;border-bottom:1px solid #ccc;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+  header h1,.panel h3,.metric b,.modal h3{color:#111}
+  .sub,.muted,label,td{color:#333}
+  .panel,.metric,.tablewrap,.modal .sheet{background:#fff;border-color:#ccc;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+  th{background:#eee;color:#111;position:static}
+  table{min-width:0;font-size:11.5px}
+  .pill{border:1px solid #999}
+  a[href]::after{content:""}
+}
 
 @media (prefers-reduced-motion:reduce){
   .tabs button,.btn,.metric,.login .card{transition:none}
@@ -266,6 +330,7 @@ footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.
       <button type="button" data-tab="clientes">Clientes</button>
       <button type="button" data-tab="pagamentos">Pagamentos</button>
       <button type="button" data-tab="cobrancas">Cobranças</button>
+      <button type="button" data-tab="relatorios">Relatórios</button>
       <button type="button" data-tab="dados">Importar / Exportar</button>
       <button type="button" data-tab="equipa" id="tabEquipa" hidden>Equipa</button>
     </nav>
@@ -273,6 +338,11 @@ footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.
     <!-- Painel -->
     <section id="painel" class="tab">
       <div class="grid" id="metrics"></div>
+      <div class="panel">
+        <h3>Balanço de ganhos e perdas</h3>
+        <p class="muted">Turquesa = recebido (ganhos). Âmbar = cobrado (perdas). Linha branca = balanço mensal.</p>
+        <div class="chartbox" id="balanceChart"></div>
+      </div>
       <div class="panel">
         <h3>Últimos pagamentos</h3>
         <div class="tablewrap" id="recent"></div>
@@ -318,7 +388,7 @@ footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.
         <form id="paymentForm">
           <div class="formgrid">
             <div><label for="payClient">Cliente *</label><select id="payClient" required></select></div>
-            <div><label for="period">Período (ex.: 11/2026) *</label><input id="period" placeholder="11/2026" required></div>
+            <div><label for="period">Período (ex.: 11/2026) *</label><input id="period" placeholder="11/2026" required inputmode="numeric" pattern="(0[1-9]|1[0-2])/[0-9]{4}" title="Formato: MM/AAAA (ex.: 11/2026)"></div>
             <div><label for="payDate">Data exacta *</label><input id="payDate" type="date" required></div>
             <div><label for="amount">Valor (Kz) *</label><input id="amount" type="number" min="0.01" step="0.01" required></div>
             <div><label for="method">Método</label><select id="method">
@@ -339,6 +409,7 @@ footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.
             <option>Todos</option><option>Pendente</option><option>Confirmado</option><option>Rejeitado</option>
           </select></div>
           <div><label for="paySearch">Pesquisar</label><input id="paySearch" placeholder="Cliente, referência ou comprovativo"></div>
+          <div><label for="payPeriod">Filtrar período</label><input id="payPeriod" placeholder="11/2026" inputmode="numeric"></div>
         </div>
         <div class="tablewrap" id="paymentTable"></div>
       </div>
@@ -351,7 +422,7 @@ footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.
         <form id="billForm">
           <div class="formgrid">
             <div><label for="billClient">Cliente *</label><select id="billClient" required></select></div>
-            <div><label for="billPeriod">Período *</label><input id="billPeriod" placeholder="11/2026" required></div>
+            <div><label for="billPeriod">Período *</label><input id="billPeriod" placeholder="11/2026" required inputmode="numeric" pattern="(0[1-9]|1[0-2])/[0-9]{4}" title="Formato: MM/AAAA (ex.: 11/2026)"></div>
             <div><label for="issueDate">Data de emissão</label><input id="issueDate" type="date"></div>
             <div><label for="dueDate">Data limite</label><input id="dueDate" type="date"></div>
             <div><label for="billAmount">Valor cobrado (Kz) *</label><input id="billAmount" type="number" min="0.01" step="0.01" required></div>
@@ -369,6 +440,46 @@ footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.
       <div class="panel">
         <h3>Lista de cobranças</h3>
         <div class="tablewrap" id="billTable"></div>
+      </div>
+    </section>
+
+    <!-- Relatórios -->
+    <section id="relatorios" class="tab hidden">
+      <div class="panel">
+        <h3>Âmbito do relatório</h3>
+        <p class="muted">Escolha um período no calendário — ou deixe <strong>Todo o período</strong> para somar tudo.</p>
+        <div class="scopebar" id="scopeBar">
+          <button type="button" data-scope="all" class="active">Todo o período</button>
+          <button type="button" data-scope="year">Ano inteiro</button>
+        </div>
+        <div class="cal" style="margin-top:12px">
+          <div class="calhead">
+            <button class="btn secondary" type="button" id="calPrev" aria-label="Ano anterior">‹</button>
+            <h4 id="calYear">2026</h4>
+            <button class="btn secondary" type="button" id="calNext" aria-label="Ano seguinte">›</button>
+            <span class="muted" id="calHint">Todo o período</span>
+          </div>
+          <div class="calgrid" id="calGrid"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Relatório</h3>
+        <div class="formgrid">
+          <div><label for="reportType">Tipo de relatório</label><select id="reportType">
+            <option value="resumo">Resumo do período</option>
+            <option value="pagamentos">Pagamentos (com adiantamentos)</option>
+            <option value="cobrancas">Cobranças</option>
+            <option value="clientes">Balanço por cliente</option>
+            <option value="metodos">Por método de pagamento</option>
+            <option value="meses">Balanço mensal (ganhos e perdas)</option>
+          </select></div>
+        </div>
+        <div class="actions">
+          <button class="btn" type="button" id="reportCsv">Descarregar CSV</button>
+          <button class="btn secondary" type="button" id="reportPrint">Imprimir / PDF</button>
+        </div>
+        <div class="reportstats" id="reportStats"></div>
+        <div class="tablewrap" id="reportTable"></div>
       </div>
     </section>
 
@@ -453,45 +564,28 @@ footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.
   <footer>ENDE CONTROL • Ferramenta de controlo interno • Não substitui sistemas oficiais da ENDE ou dos bancos</footer>
 </div>
 
+<!-- Modal: confirmar / rejeitar pagamento (substitui o prompt nativo) -->
+<div class="modal hidden" id="payModal" role="dialog" aria-modal="true" aria-labelledby="payModalTitle">
+  <div class="sheet">
+    <h3 id="payModalTitle">Validar pagamento</h3>
+    <div class="summary" id="payModalSummary"></div>
+    <label for="payModalWho">Validado por</label>
+    <input id="payModalWho" autocomplete="name" placeholder="Nome de quem valida">
+    <div class="notice err hidden" id="payModalError" style="margin-top:10px"></div>
+    <div class="actions">
+      <button class="btn good" type="button" id="payModalOk">Confirmar</button>
+      <button class="btn danger" type="button" id="payModalNo">Rejeitar</button>
+      <button class="btn secondary" type="button" id="payModalCancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="./src/app.js"></script>
 <script>
-// Glass interativo: som de clique sintetizado (Web Audio, sem ficheiro externo)
-// e tilt 3D no cartão de login. Dispara em pointerdown — não atrasa submits.
+// Glass interativo: tilt 3D no cartão de login + brilho a seguir o cursor.
+// (O som de clique sintetizado foi removido a pedido.)
 (function () {
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var ctx = null;
-  function clickSound() {
-    try {
-      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') ctx.resume();
-      var t = ctx.currentTime;
-      var osc = ctx.createOscillator(), g = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(780, t);
-      osc.frequency.exponentialRampToValueAtTime(240, t + 0.07);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.09, t + 0.006);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
-      osc.connect(g); g.connect(ctx.destination);
-      osc.start(t); osc.stop(t + 0.15);
-      var len = Math.floor(ctx.sampleRate * 0.03);
-      var buf = ctx.createBuffer(1, len, ctx.sampleRate);
-      var data = buf.getChannelData(0);
-      for (var i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
-      var src = ctx.createBufferSource(); src.buffer = buf;
-      var hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1900;
-      var ng = ctx.createGain(); ng.gain.setValueAtTime(0.045, t);
-      ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-      src.connect(hp); hp.connect(ng); ng.connect(ctx.destination);
-      src.start(t);
-    } catch (e) { /* sem áudio — a acção segue na mesma */ }
-  }
-  document.addEventListener('pointerdown', function (e) {
-    var el = e.target && e.target.closest ? e.target.closest('button, a, label.btn, .tabs button') : null;
-    if (!el || el.disabled) return;
-    clickSound();
-  }, { passive: true });
-
   if (reduce) return;
 
   // tilt 3D do cartão de login + brilho a seguir o cursor

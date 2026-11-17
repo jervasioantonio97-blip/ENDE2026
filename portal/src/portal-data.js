@@ -17,12 +17,49 @@
 
 const OPEN_BILL = new Set(['Em aberto', 'Parcial']);
 const PAID_BILL = new Set(['Liquidada']);
+// Aceita ano de 4 dígitos (11/2026) e de 2 (12/26, dado legado -> 2026).
+const PERIOD_RE = /^(0[1-9]|1[0-2])\s*\/\s*(\d{2}|\d{4})$/;
 
-/** '11/2026' -> '2026'; devolve '' quando o período não tem ano. */
+/** '11/2026' -> índice ordenável (ano*12+mês-1); null quando inválido. */
+export function periodIndex(period) {
+  const m = PERIOD_RE.exec(String(period ?? '').trim());
+  if (!m) return null;
+  const yy = m[2];
+  const year = yy.length === 2 ? 2000 + Number(yy) : Number(yy);
+  return year * 12 + (Number(m[1]) - 1);
+}
+
+/**
+ * Adiantamento = período posterior ao mês corrente (derivado, sem campo novo).
+ * Um pagamento em 12/2026 registado em Novembro de 2026 é adiantamento.
+ */
+export function isAdvance(period, today = new Date()) {
+  const idx = periodIndex(period);
+  if (idx == null) return false;
+  return idx > today.getFullYear() * 12 + today.getMonth();
+}
+
+/** '2026-12-16' -> '12/2026'; '' quando a data não é ISO. */
+function isoToPeriod(iso) {
+  const m = /^(\d{4})-(\d{2})/.exec(String(iso ?? ''));
+  return m ? `${m[2]}/${m[1]}` : '';
+}
+
+/**
+ * Período efectivo de um pagamento: o campo `period` quando parseia; para
+ * texto livre (dado legado), cai para a data — mesmo critério do painel.
+ */
+function paymentPeriod(p) {
+  return periodIndex(p.period) != null ? String(p.period).trim() : isoToPeriod(p.date);
+}
+
+/** '11/2026' ou '11/26' -> '2026'; devolve '' quando o período não tem ano. */
 export function yearOf(period) {
   const text = String(period ?? '');
-  const match = /(\d{4})\s*$/.exec(text);
-  return match ? match[1] : '';
+  const match = /(\d{2,4})\s*$/.exec(text);
+  if (!match) return '';
+  const yy = match[1];
+  return yy.length === 2 ? String(2000 + Number(yy)) : yy;
 }
 
 /** '11/2026' -> '11' (mês para ordenar dentro do ano). */
@@ -42,7 +79,7 @@ function live(rows) {
 }
 
 /** Junta cobranças e pagamentos numa linha por período. */
-function collect(bills, payments) {
+function collect(bills, payments, today) {
   const byPeriod = new Map();
 
   function entry(period) {
@@ -59,6 +96,7 @@ function collect(bills, payments) {
         cut: false,
         paid: false,
         pending: false,
+        advance: false,
         receipt: '',
         date: '',
       });
@@ -83,6 +121,7 @@ function collect(bills, payments) {
     if (!e) continue;
     e.paid = true;
     e.pending = false; // pago vence pendente
+    if (isAdvance(paymentPeriod(p), today)) e.advance = true;
     if (!e.amount) e.amount = num(p.amount);
     e.receipt = p.receipt || e.receipt;
     e.date = p.date || e.date;
@@ -109,8 +148,8 @@ function byPeriodDesc(a, b) {
  *   },
  * }}
  */
-export function buildView({ bills = [], payments = [] } = {}) {
-  const rows = collect(bills, payments);
+export function buildView({ bills = [], payments = [], today = new Date() } = {}) {
+  const rows = collect(bills, payments, today);
 
   const paidRows = rows.filter((r) => r.paid).sort(byPeriodDesc);
   const pendingRows = rows.filter((r) => !r.paid && r.pending).sort(byPeriodDesc);
@@ -142,6 +181,37 @@ export function buildView({ bills = [], payments = [] } = {}) {
       pendingTotal: pendingRows.reduce((sum, r) => sum + r.amount, 0),
       lateFee,
       cut: rows.some((r) => !r.paid && r.cut),
+      advanceCount: paidRows.filter((r) => r.advance).length,
     },
   };
+}
+
+const csvCell = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+const csvMoney = (v) => (Math.round(num(v) * 100) / 100).toFixed(2).replace('.', ',');
+
+/**
+ * Mapa de conta em CSV (`;`, aspas dobradas, BOM para o Excel).
+ * Uma linha por período: pagos primeiro (ano/mês desc), depois pendentes.
+ *
+ * @param {{ years: object[], pending: object[] }} view
+ */
+export function mapCSV(view) {
+  const head = ['periodo', 'estado', 'valor_kz', 'vencimento', 'multa_kz', 'corte', 'data_pagamento', 'comprovativo', 'tipo'];
+  const rows = [];
+  for (const group of view.years || []) {
+    for (const m of group.months || []) {
+      rows.push([
+        m.period, 'Pago', csvMoney(m.amount), m.due || '', csvMoney(m.lateFee),
+        m.cut ? 'Sim' : 'Não', m.date || '', m.receipt || '',
+        m.advance ? 'Adiantamento' : 'Normal',
+      ]);
+    }
+  }
+  for (const m of view.pending || []) {
+    rows.push([
+      m.period, 'Pendente', csvMoney(m.amount), m.due || '', csvMoney(m.lateFee),
+      m.cut ? 'Sim' : 'Não', '', '', m.advance ? 'Adiantamento' : 'Normal',
+    ]);
+  }
+  return '\ufeff' + [head, ...rows].map((r) => r.map(csvCell).join(';')).join('\r\n');
 }

@@ -10,6 +10,8 @@ Esquema Supabase, armazenamento local, motor de sincronização e interface PWA.
 | `supabase/migrations/0001_init.sql` | Tabelas, índices, triggers, RLS e permissões |
 | `supabase/migrations/0002_portal_cliente.sql` | Papel `cliente`, `client_id`, multa/corte, RLS de leitura própria |
 | `index.html` + `src/app.js` | Interface da PWA (separadores, formulários, sync) |
+| `src/report.js` | Relatórios puros: âmbitos, períodos, adiantamentos, CSV |
+| `src/charts.js` | Gráfico SVG do balanço (barras duplas + linha), sem CDN |
 | `src/remote-supabase.js` | Adaptador `remote` contra o PostgREST |
 | `src/auth.js` | Sessão GoTrue: entrar, renovar token, sair (chave de sessão configurável) |
 | `src/admin-users.js` | Cliente da Edge Function `admin-users` (painel de equipa) |
@@ -24,7 +26,9 @@ Esquema Supabase, armazenamento local, motor de sincronização e interface PWA.
 | `tests/sync-engine.test.mjs` | 11 testes de comportamento do motor |
 | `tests/remote-supabase.test.mjs` | 19 testes do adaptador remoto |
 | `tests/admin-users.test.mjs` | 15 testes do cliente do painel de equipa |
-| `tests/portal.test.mjs` | 16 testes do modelo de dados do portal do cliente |
+| `tests/portal.test.mjs` | 19 testes do modelo de dados do portal do cliente |
+| `tests/report.test.mjs` | 12 testes dos âmbitos, períodos e CSV de relatórios |
+| `tests/charts.test.mjs` | 6 testes do gráfico SVG de balanço |
 
 No repositório, ao lado de `app/`:
 
@@ -189,6 +193,59 @@ migração `0002`).
 - `bills.late_fee` (multa de atraso) e `bills.cut` (corte aplicado).
 - Helpers `is_client()` / `current_client_id()` e políticas `*_read_own`;
   as políticas de escrita **excluem** o papel `cliente`.
+
+## Relatórios, balanço e adiantamentos
+
+O separador **Relatórios** (`src/report.js`, funções puras) cobre:
+
+- **Âmbito**: *Todo o período* (omissão), *Ano inteiro* ou um mês exacto
+  escolhido num **calendário** de 12 meses com navegação de anos.
+- **Saída**: tabela no ecrã, **CSV** (`;`, aspas dobradas, BOM — abre no
+  Excel) e **Imprimir/PDF** via `@media print` (só o conteúdo, sem chrome).
+- 6 tipos de relatório: resumo, pagamentos, cobranças, clientes, métodos e
+  balanço mensal.
+- **Períodos**: aceita `MM/AAAA` e o dado legado de 2 dígitos (`12/26` → 2026);
+  texto livre (ex. `16 de Novembro de 2026`) cai para a data do registo
+  (`date`/`issue`/`due`) para não perder linhas.
+- **Adiantamento** é derivado, sem coluna nova: um pagamento conta como
+  adiantamento quando o seu período é posterior ao mês corrente.
+
+O **gráfico de balanço** (`src/charts.js`) é SVG desenhado à mão (sem CDN,
+offline-first): barras duplas por mês — ganhos (recebido, turquesa) e perdas
+(cobrado, âmbar) — com a linha branca do balanço e estado vazio legível.
+
+## Validação de pagamentos (modal)
+
+Confirmar/Rejeitar abre um **modal** (substituiu o `prompt()` antigo, que
+falhava em browsers com diálogo bloqueado):
+
+1. Resumo do pagamento + campo «quem valida» (pré-preenchido com o e-mail).
+2. Nome vazio → erro inline, o modal **não** fecha nem escreve.
+3. **Cancelar** (ou clique fora / Esc) → fecha sem escrita.
+4. **Confirmar**/**Rejeitar** → escreve `status`, `validated_by`,
+   `validated_at` e faz sync. Operador não vê os botões (RLS + render).
+
+Os formulários de pagamento e cobrança validam o campo **período** com
+`pattern="MM/AAAA"`.
+
+## Portal do cliente — mapa de conta
+
+- **Descarregar CSV** (`ende-mapa-de-conta.csv`): uma linha por período —
+  pagos primeiro, depois pendentes — com valor, vencimento, multa, corte,
+  data, comprovativo e tipo (Adiantamento/Normal).
+- **Imprimir/PDF**: o mesmo conteúdo em papel, sem o resto do portal.
+- Pill **Adiantamento** nos meses pagos com período futuro.
+
+## Tema e interface
+
+- **Glass 3D verde turquesa** nos 3 sites (painel, portal, landing):
+  orbs + grão, `backdrop-filter`, Space Grotesk + Inter, `color-scheme:dark`,
+  tilt 3D só no login e `prefers-reduced-motion` respeitado.
+- Contraste **WCAG AA** verificado ao vivo: botão primário turquesa
+  (`#2dd4bf→#14b8a6`) com texto escuro `#04211f` (9,08…6,79:1); estados
+  good/warn/danger com texto branco ≥ 4,5:1; acento `#5eead4` 11,5:1.
+- **Som de clique removido** dos 3 sites (o `ENDE_CONTROL.html` legado
+  não foi tocado).
 
 ## Como o conflito é resolvido
 

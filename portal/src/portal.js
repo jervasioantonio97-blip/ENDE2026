@@ -10,7 +10,7 @@
 
 import { SUPABASE_URL, SUPABASE_ANON_KEY, APP_NAME } from '../../app/src/config.js';
 import { createAuth } from '../../app/src/auth.js';
-import { buildView } from './portal-data.js';
+import { buildView, mapCSV } from './portal-data.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -22,6 +22,7 @@ const auth = createAuth({
 
 let myClientId = null;
 let clientLabel = '';
+let lastView = null; // vista actual, para o CSV do mapa de conta
 
 function showError(id, message) {
   const el = $(id);
@@ -87,6 +88,7 @@ async function loadData() {
 }
 
 function render(view) {
+  lastView = view;
   const s = view.summary;
   $('mPaid').textContent = String(s.paidCount);
   $('mPending').textContent = String(s.pendingCount);
@@ -114,7 +116,7 @@ function render(view) {
               <tr>
                 <td>${esc(m.period)}</td>
                 <td>${money(m.amount)}</td>
-                <td><span class="pill Pago">Pago</span></td>
+                <td><span class="pill Pago">Pago</span>${m.advance ? ' <span class="pill Adiantamento">Adiantamento</span>' : ''}</td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -204,6 +206,18 @@ $('logoutBtn').addEventListener('click', async () => {
 });
 
 $('refreshBtn').addEventListener('click', refresh);
+
+$('csvBtn').addEventListener('click', () => {
+  if (!lastView) return;
+  const a = document.createElement('a');
+  const u = URL.createObjectURL(new Blob([mapCSV(lastView)], { type: 'text/csv;charset=utf-8' }));
+  a.href = u;
+  a.download = 'ende-mapa-de-conta.csv';
+  a.click();
+  URL.revokeObjectURL(u);
+});
+
+$('printBtn').addEventListener('click', () => window.print());
 
 // Sessão guardada? Entra directamente; sem perfil válido, volta ao login.
 (async () => {

@@ -6,7 +6,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildView, yearOf, monthOf } from '../../portal/src/portal-data.js';
+import { buildView, yearOf, monthOf, periodIndex, isAdvance, mapCSV } from '../../portal/src/portal-data.js';
 
 const bill = (over = {}) => ({
   period: '11/2026',
@@ -33,6 +33,7 @@ const payment = (over = {}) => ({
 
 test('yearOf e monthOf leem o período MM/AAAA', () => {
   assert.equal(yearOf('11/2026'), '2026');
+  assert.equal(yearOf('11/26'), '2026', 'ano de 2 dígitos do dado legado');
   assert.equal(monthOf('11/2026'), '11');
   assert.equal(monthOf('3/2026'), '03');
 });
@@ -174,4 +175,84 @@ test('valor não numérico não lança: conta como zero', () => {
   const view = buildView({ bills: [bill({ amount: 'abc', late_fee: null })] });
   assert.equal(view.summary.pendingTotal, 0);
   assert.equal(view.summary.lateFee, 0);
+});
+
+// ── adiantamentos (período futuro, derivado) ─────────────────────────────────
+
+// «Hoje» fixo: Novembro de 2026.
+const TODAY = new Date(2026, 10, 17);
+
+test('periodIndex e isAdvance: período posterior ao mês corrente', () => {
+  assert.equal(periodIndex('11/2026'), 2026 * 12 + 10);
+  assert.equal(periodIndex('12/26'), 2026 * 12 + 11, 'ano de 2 dígitos');
+  assert.equal(periodIndex('13/2026'), null);
+  assert.equal(isAdvance('12/2026', TODAY), true);
+  assert.equal(isAdvance('12/26', TODAY), true);
+  assert.equal(isAdvance('11/2026', TODAY), false);
+  assert.equal(isAdvance('10/2026', TODAY), false);
+  assert.equal(isAdvance('texto livre', TODAY), false);
+});
+
+test('pagamento Confirmado de período futuro marca a linha como adiantamento', () => {
+  const view = buildView({
+    today: TODAY,
+    payments: [
+      payment({ period: '12/2026' }), // futuro
+      payment({ period: '11/2026', date: '2026-11-10' }), // corrente
+    ],
+    bills: [],
+  });
+  const rows = view.years.flatMap((g) => g.months);
+  assert.equal(rows.length, 2);
+  const futura = rows.find((m) => m.period === '12/2026');
+  const actual = rows.find((m) => m.period === '11/2026');
+  assert.equal(futura.advance, true);
+  assert.equal(actual.advance, false);
+  assert.equal(view.summary.advanceCount, 1);
+});
+
+test('período em texto livre com data futura também conta como adiantamento', () => {
+  // dado real em produção: period "16 de Novembro de 2026", date 2026-12-16
+  const view = buildView({
+    today: TODAY,
+    payments: [payment({ period: '16 de Novembro de 2026', date: '2026-12-16' })],
+    bills: [],
+  });
+  const rows = view.years.flatMap((g) => g.months);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].advance, true);
+  assert.equal(view.summary.advanceCount, 1);
+});
+
+// ── mapa de conta em CSV ─────────────────────────────────────────────────────
+
+test('mapCSV emite BOM, ponto e vírgula e uma linha por período', () => {
+  const view = buildView({
+    today: TODAY,
+    bills: [
+      bill({ status: 'Liquidada', amount: 3000, due: '2026-11-20' }),
+      bill({ period: '10/2026', status: 'Em aberto', amount: 1200, late_fee: 200 }),
+    ],
+    payments: [payment({ period: '12/2026', amount: 5000, receipt: 'REC-9' })],
+  });
+  const csv = mapCSV(view);
+
+  assert.ok(csv.startsWith('\ufeff"periodo"'));
+  const lines = csv.slice(1).split('\r\n');
+  assert.equal(lines.length, 4, 'cabeçalho + 3 períodos');
+  // pagos por ano em ordem ascendente dentro do ano: 11/2026, 12/2026
+  assert.ok(lines[1].includes('"11/2026"'));
+  assert.ok(lines[1].includes('"Pago"'));
+  assert.ok(lines[1].includes('"Normal"'));
+  assert.ok(lines[2].includes('"12/2026"'));
+  assert.ok(lines[2].includes('"Adiantamento"'));
+  assert.ok(lines[2].includes('"REC-9"'));
+  assert.ok(lines[3].includes('"10/2026"'));
+  assert.ok(lines[3].includes('"Pendente"'));
+  assert.ok(lines.some((l) => l.includes('"1200,00"')));
+});
+
+test('mapCSV de vista vazia só tem o cabeçalho', () => {
+  const csv = mapCSV(buildView({ today: TODAY }));
+  assert.equal(csv.slice(1).split('\r\n').length, 1);
 });
