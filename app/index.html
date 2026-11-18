@@ -256,6 +256,14 @@ footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.
   background:linear-gradient(145deg,rgba(45,212,191,.32),rgba(45,212,191,.12));
   border-color:rgba(45,212,191,.65);color:#fff;
 }
+.rangebar{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.rangebar > div{display:flex;flex-direction:column;gap:5px}
+.rangebar label{font:600 12px var(--body);color:var(--muted)}
+.rangebar input[type=date]{min-width:150px}
+.calhead select{
+  border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;
+  font:600 13px var(--body);color:var(--ink);background:var(--glass2);
+}
 .reportstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:12px}
 .reportstats .metric b{font-size:17px}
 .balance.pos b,.balance.pos{color:#7ef0c6} .balance.neg{color:#ff9b8b}
@@ -330,6 +338,7 @@ footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.
       <button type="button" data-tab="clientes">Clientes</button>
       <button type="button" data-tab="pagamentos">Pagamentos</button>
       <button type="button" data-tab="cobrancas">Cobranças</button>
+      <button type="button" data-tab="caixa" id="tabCaixa" hidden>Caixa do dia</button>
       <button type="button" data-tab="relatorios">Relatórios</button>
       <button type="button" data-tab="dados">Importar / Exportar</button>
       <button type="button" data-tab="equipa" id="tabEquipa" hidden>Equipa</button>
@@ -377,7 +386,20 @@ footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.
       <div class="panel">
         <label for="clientSearch">Pesquisar cliente</label>
         <input id="clientSearch" placeholder="Nome ou referência">
+        <p class="muted">Use <strong>Consultar</strong> na linha do cliente para ver cobranças e pagamentos.</p>
         <div class="tablewrap" id="clientTable"></div>
+      </div>
+      <div class="panel hidden" id="clientDetail">
+        <h3>Consulta de cliente</h3>
+        <p class="muted" id="clientDetailHead">—</p>
+        <div class="reportstats" id="clientDetailStats"></div>
+        <h4 style="margin:16px 0 6px">Cobranças</h4>
+        <div class="tablewrap" id="clientDetailBills"></div>
+        <h4 style="margin:16px 0 6px">Pagamentos</h4>
+        <div class="tablewrap" id="clientDetailPays"></div>
+        <div class="actions">
+          <button class="btn secondary" type="button" id="clientDetailClose">Fechar consulta</button>
+        </div>
       </div>
     </section>
 
@@ -443,27 +465,65 @@ footer{text-align:center;padding:18px 16px 28px;color:var(--faint);font-size:12.
       </div>
     </section>
 
+    <!-- Caixa do dia — só para o operador -->
+    <section id="caixa" class="tab hidden">
+      <div class="panel">
+        <h3>Caixa do dia</h3>
+        <p class="muted" id="caixaDate">—</p>
+        <div class="reportstats" id="caixaStats"></div>
+        <div class="actions">
+          <button class="btn" type="button" id="caixaCsv">Descarregar CSV</button>
+          <button class="btn secondary" type="button" id="caixaPrint">Imprimir / PDF</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Entradas por método</h3>
+        <div class="tablewrap" id="caixaMethods"></div>
+      </div>
+      <div class="panel">
+        <h3>Movimentos do dia</h3>
+        <div class="tablewrap" id="caixaTable"></div>
+      </div>
+    </section>
+
     <!-- Relatórios -->
     <section id="relatorios" class="tab hidden">
       <div class="panel">
         <h3>Âmbito do relatório</h3>
-        <p class="muted">Escolha um período no calendário — ou deixe <strong>Todo o período</strong> para somar tudo.</p>
+        <p class="muted">Escolha um período no calendário, um intervalo <strong>De – até</strong> (dias, meses ou anos), ou deixe <strong>Todo o período</strong> para somar tudo.</p>
         <div class="scopebar" id="scopeBar">
           <button type="button" data-scope="all" class="active">Todo o período</button>
           <button type="button" data-scope="year">Ano inteiro</button>
+          <button type="button" data-scope="range">De – até</button>
         </div>
         <div class="cal" style="margin-top:12px">
           <div class="calhead">
-            <button class="btn secondary" type="button" id="calPrev" aria-label="Ano anterior">‹</button>
+            <button class="btn secondary" type="button" id="calPrev" aria-label="Periodo anterior">‹</button>
             <h4 id="calYear">2026</h4>
-            <button class="btn secondary" type="button" id="calNext" aria-label="Ano seguinte">›</button>
+            <button class="btn secondary" type="button" id="calNext" aria-label="Periodo seguinte">›</button>
+            <label class="muted" for="rangeStep" style="align-self:center">Passo</label>
+            <select id="rangeStep" title="Navegar por dia, mês ou ano">
+              <option value="day">Dia</option>
+              <option value="month" selected>Mês</option>
+              <option value="year">Ano</option>
+            </select>
             <span class="muted" id="calHint">Todo o período</span>
           </div>
           <div class="calgrid" id="calGrid"></div>
+          <div class="rangebar hidden" id="rangeBar">
+            <div><label for="rangeFrom">De</label>
+              <input type="date" id="rangeFrom" value=""></div>
+            <div><label for="rangeTo">até</label>
+              <input type="date" id="rangeTo" value=""></div>
+            <button class="btn secondary" type="button" id="rangePrev">‹ Anterior</button>
+            <button class="btn secondary" type="button" id="rangeNext">Seguinte ›</button>
+            <button class="btn secondary" type="button" id="rangeToday">Hoje</button>
+          </div>
         </div>
       </div>
       <div class="panel">
         <h3>Relatório</h3>
+        <p class="muted" id="reportScopeLine">Âmbito: Todo o período</p>
         <div class="formgrid">
           <div><label for="reportType">Tipo de relatório</label><select id="reportType">
             <option value="resumo">Resumo do período</option>

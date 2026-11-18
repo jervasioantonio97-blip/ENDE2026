@@ -4,6 +4,7 @@
 //   { kind: 'all' }                     -> todo o período (omissão)
 //   { kind: 'year', year: 2026 }        -> ano inteiro
 //   { kind: 'month', month: '11/2026' } -> um mês exacto, via calendário
+//   { kind: 'range', from, to }         -> intervalo de datas (de–até), ISO
 //
 // Adiantamento = DERIVADO, sem campo novo: um pagamento conta como
 // adiantamento quando o seu período é posterior ao mês corrente.
@@ -61,9 +62,31 @@ export function isAdvance(row, today = new Date()) {
   return idx > today.getFullYear() * 12 + today.getMonth();
 }
 
+/**
+ * Data efectiva do registo em ISO (`YYYY-MM-DD`), para o âmbito de intervalo:
+ * `date` (pagamentos) → `issue`/`due` (cobranças) → o 1.º dia do período.
+ * '' quando não há qualquer data.
+ */
+export function rowDate(row) {
+  const iso = /^(\d{4}-\d{2}-\d{2})/.exec(String(row?.date ?? row?.issue ?? row?.due ?? ''));
+  if (iso) return iso[1];
+  const idx = periodIndex(rowPeriod(row));
+  if (idx == null) return '';
+  const y = Math.floor(idx / 12);
+  const m = (idx % 12) + 1;
+  return `${y}-${String(m).padStart(2, '0')}-01`;
+}
+
 /** O registo pertence ao âmbito escolhido? */
 export function inScope(row, scope, today = new Date()) {
   if (!scope || scope.kind === 'all') return true;
+  if (scope.kind === 'range') {
+    const d = rowDate(row);
+    if (!d) return false;
+    const from = String(scope.from || '');
+    const to = String(scope.to || '');
+    return (!from || d >= from) && (!to || d <= to);
+  }
   const idx = periodIndex(rowPeriod(row));
   if (idx == null) return false;
   if (scope.kind === 'year') return Math.floor(idx / 12) === Number(scope.year);
@@ -75,7 +98,78 @@ export function inScope(row, scope, today = new Date()) {
 export function scopeLabel(scope) {
   if (!scope || scope.kind === 'all') return 'todo-o-periodo';
   if (scope.kind === 'year') return String(scope.year);
+  if (scope.kind === 'range') {
+    const a = String(scope.from || 'inicio').replace(/-/g, '');
+    const b = String(scope.to || 'fim').replace(/-/g, '');
+    return `de-${a}-ate-${b}`;
+  }
   return String(scope.month).replace('/', '-');
+}
+
+/** Rótulo legível do âmbito, para o ecrã (pt-PT). */
+export function scopeHint(scope) {
+  if (!scope || scope.kind === 'all') return 'Todo o período';
+  if (scope.kind === 'year') return `Ano ${scope.year}`;
+  if (scope.kind === 'range') {
+    const d = (s) => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s || ''));
+      return m ? `${m[3]}/${m[2]}/${m[1]}` : '…';
+    };
+    return `De ${d(scope.from)} até ${d(scope.to)}`;
+  }
+  return periodLabel(scope.month);
+}
+
+/** Desloca uma data ISO em `step` ('day' | 'month' | 'year'), com `dir` (±1). */
+export function shiftISO(iso, step = 'day', dir = 1) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+  if (!m) return String(iso || '');
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  let ny = y;
+  let nmo = mo;
+  let nd = d;
+  if (step === 'year') {
+    ny = y + dir;
+  } else if (step === 'month') {
+    nmo = mo + dir;
+    while (nmo > 12) { nmo -= 12; ny += 1; }
+    while (nmo < 1) { nmo += 12; ny -= 1; }
+  } else {
+    const dt = new Date(Date.UTC(y, mo - 1, d));
+    dt.setUTCDate(dt.getUTCDate() + dir);
+    return dt.toISOString().slice(0, 10);
+  }
+  // Clamp ao último dia do mês (31/01 + 1 mês -> 28/02 em ano bissexto…).
+  const last = new Date(Date.UTC(ny, nmo, 0)).getUTCDate();
+  if (nd > last) nd = last;
+  return `${ny}-${String(nmo).padStart(2, '0')}-${String(nd).padStart(2, '0')}`;
+}
+
+/**
+ * Desloca o âmbito activo para navegar (setas ‹ ›) com o passo escolhido:
+ * intervalo -> move as duas pontas; mês -> ±1 mês (ou ±1 ano se passo=ano);
+ * ano -> ±1 ano. `all` devolve-se intacto.
+ */
+export function shiftScope(scope, step = 'day', dir = 1) {
+  if (!scope || scope.kind === 'all') return scope;
+  if (scope.kind === 'range') {
+    return { ...scope, from: shiftISO(scope.from, step, dir), to: shiftISO(scope.to, step, dir) };
+  }
+  if (scope.kind === 'month') {
+    const idx = periodIndex(scope.month);
+    if (idx == null) return scope;
+    const n = step === 'year' ? 12 : 1;
+    const ni = idx + dir * n;
+    const y = Math.floor(ni / 12);
+    const mo = (ni % 12) + 1;
+    return { kind: 'month', month: `${String(mo).padStart(2, '0')}/${y}` };
+  }
+  if (scope.kind === 'year') {
+    return { kind: 'year', year: Number(scope.year) + dir };
+  }
+  return scope;
 }
 
 const livePays = (payments) => payments.filter((p) => p && !p.deleted_at);

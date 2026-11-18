@@ -15,7 +15,7 @@ import { createAdminUsers } from './admin-users.js';
 import { createSyncEngine, TABLES } from './core/sync-engine.js';
 import { openStore } from './core/idb-store.js';
 import { uuid } from './core/ids.js';
-import { buildReport, reportCSV, scopeLabel, isAdvance, rowPeriod, periodLabel } from './report.js';
+import { buildReport, reportCSV, toCSV, scopeLabel, scopeHint, shiftScope, isAdvance, rowPeriod, periodLabel } from './report.js';
 import { balanceChart } from './charts.js';
 
 const $ = (id) => document.getElementById(id);
@@ -25,7 +25,11 @@ const esc = (s) =>
 const slug = (s) => String(s ?? '').replace(/\s+/g, '-');
 const money = (n) =>
   (Number(n) || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Kz';
-const today = () => new Date().toISOString().slice(0, 10);
+// Data LOCAL em ISO (o dia do utilizador, não o de UTC — Angola é UTC+1).
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 const state = {
   auth: null,
@@ -42,6 +46,9 @@ const state = {
   lastSync: null,
   reportScope: { kind: 'all' },
   reportYear: new Date().getFullYear(),
+  reportStep: 'month', // passo das setas ‹ ›: day | month | year
+  reportRange: null,   // { from, to } em ISO — mantém-se ao trocar de âmbito
+  consultClient: null, // id do cliente aberto no painel de consulta
 };
 
 // ── autenticação ─────────────────────────────────────────────────────────────
@@ -121,6 +128,11 @@ async function enterApp() {
     });
     $('painel').classList.remove('hidden');
   }
+
+  // A caixa do dia é exclusiva do ecrã do operador.
+  const isOperator = state.role === 'operador';
+  $('tabCaixa').hidden = !isOperator;
+  if (!isOperator) $('caixa').classList.add('hidden');
 
   if (!state.local) {
     state.local = await openStore('ende-control');
@@ -414,6 +426,12 @@ function render() {
   renderBillTable(bills);
   renderConflicts();
 
+  // Caixa do dia (só operador) e consulta de cliente aberta.
+  if (!$('caixa').classList.contains('hidden')) renderCaixa();
+  if (state.consultClient && !$('clientDetail').classList.contains('hidden')) {
+    renderClientDetail(state.consultClient);
+  }
+
   $('statPending').textContent = String(state.pending);
   $('statConflicts').textContent = String(state.conflicts.length);
   $('statLast').textContent = state.lastSync
@@ -453,6 +471,7 @@ function renderClientTable(clients) {
     ['Referência', 'Nome', 'Contacto', 'WhatsApp', 'IBAN', 'Ano', 'Acções'],
     shown.map((c) => [
       esc(c.ref), esc(c.name), esc(c.contact), esc(c.whatsapp), esc(c.iban), esc(c.year),
+      `<button class="btn secondary" type="button" data-consult-client="${esc(c.id)}">Consultar</button> ` +
       `<button class="btn secondary" type="button" data-edit-client="${esc(c.id)}">Editar</button> ` +
       `<button class="btn danger" type="button" data-del-client="${esc(c.id)}">Apagar</button>`,
     ]),
@@ -516,6 +535,150 @@ function renderConflicts() {
     ]),
   );
 }
+
+// ── caixa do dia (só operador) + consulta de cliente ────────────────────────
+
+/** Âmbito de um dia exacto (hoje), em intervalo ISO. */
+const dayScope = (iso) => ({ kind: 'range', from: iso, to: iso });
+
+function caixaReport() {
+  return buildReport({ payments: live(state.payments), bills: live(state.bills), scope: dayScope(today()) });
+}
+
+function renderCaixa() {
+  const t = today();
+  const r = caixaReport();
+  const entradas = r.totals.received;   // Confirmado
+  const saidas = r.totals.rejected;     // Rejeitado
+  const saldo = entradas - saidas;
+
+  $('caixaDate').textContent =
+    `Dia ${t.split('-').reverse().join('/')} — entradas = pagamentos confirmados; ` +
+    'saídas = pagamentos rejeitados; cobranças emitidas no dia (informativo).';
+
+  $('caixaStats').innerHTML = [
+    ['Entradas (confirmado)', money(entradas)],
+    ['Saídas (rejeitado)', money(saidas)],
+    ['Saldo do dia', `<span class="balance ${saldo >= 0 ? 'pos' : 'neg'}">${money(saldo)}</span>`],
+    ['A aguardar validação', money(r.totals.pending)],
+    ['Cobranças emitidas', money(r.totals.billed)],
+  ].map(([k, v]) => `<div class="metric">${k}<b>${v}</b></div>`).join('');
+
+  $('caixaMethods').innerHTML = table(
+    ['Método', 'N.º de entradas', 'Total'],
+    r.methods.map((m) => [esc(m.method), String(m.count), money(m.total)]),
+  );
+
+  const rows = [
+    ...r.payments.map((p) => ({
+      sort: `${p.date} ${p.id}`,
+      cells: [
+        p.status === 'Confirmado' ? 'Entrada' : p.status === 'Rejeitado' ? 'Saída' : 'Pendente',
+        esc(p.date), esc(p.name), esc(rowPeriod(p)), money(p.amount), esc(p.method),
+        `<span class="pill ${slug(p.status)}">${esc(p.status)}</span>`,
+      ],
+    })),
+    ...r.bills.map((b) => ({
+      sort: `${b.issue || ''} ${b.id}`,
+      cells: [
+        'Cobrança', esc(b.issue || '—'), esc(b.name), esc(rowPeriod(b)), money(b.amount), esc(b.origin || '—'),
+        `<span class="pill ${slug(b.status)}">${esc(b.status)}</span>`,
+      ],
+    })),
+  ].sort((a, b) => String(b.sort).localeCompare(String(a.sort)));
+
+  $('caixaTable').innerHTML = table(
+    ['Tipo', 'Data', 'Cliente', 'Período', 'Valor', 'Método / Origem', 'Estado'],
+    rows.map((r2) => r2.cells),
+  );
+}
+
+/** CSV do dia: movimentos de caixa (entradas, saídas e cobranças). */
+function caixaCSV() {
+  const r = caixaReport();
+  const rows = [
+    ...r.payments.map((p) => [
+      p.status === 'Confirmado' ? 'Entrada' : p.status === 'Rejeitado' ? 'Saída' : 'Pendente',
+      p.date, p.name, rowPeriod(p), money(p.amount), p.method, p.status,
+    ]),
+    ...r.bills.map((b) => ['Cobrança', b.issue || '', b.name, rowPeriod(b), money(b.amount), b.origin || '', b.status]),
+  ];
+  return toCSV(['tipo', 'data', 'cliente', 'periodo', 'valor', 'metodo_origem', 'estado'], rows);
+}
+
+$('caixaCsv').addEventListener('click', () => {
+  download(`ende-caixa-${today()}.csv`, caixaCSV(), 'text/csv;charset=utf-8');
+});
+$('caixaPrint').addEventListener('click', () => window.print());
+
+// ── consulta de cliente (cobranças + pagamentos de uma só vez) ──────────────
+
+function renderClientDetail(clientId) {
+  const all = live(state.clients);
+  const c = all.find((x) => x.id === clientId) || all.find((x) => x.ref === clientId);
+  if (!c) {
+    state.consultClient = null;
+    $('clientDetail').classList.add('hidden');
+    return;
+  }
+  const same = (row) => row.client_id === c.id || (!!row.ref && row.ref === c.ref);
+  const bills = live(state.bills).filter(same);
+  const pays = live(state.payments).filter(same);
+
+  const billed = bills.reduce((s, b) => s + (Number(b.amount) || 0) + (Number(b.late_fee) || 0), 0);
+  const received = pays.filter((p) => p.status === 'Confirmado').reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const pending = pays.filter((p) => p.status === 'Pendente').reduce((s, p) => s + (Number(p.amount) || 0), 0);
+  const balance = received - billed;
+
+  $('clientDetailHead').textContent =
+    `${c.ref} — ${c.name}` +
+    (c.contact ? ` · ${c.contact}` : '') +
+    (c.whatsapp ? ` · WhatsApp ${c.whatsapp}` : '') +
+    ` · ano ${c.year ?? '—'}`;
+
+  $('clientDetailStats').innerHTML = [
+    ['Cobrado', money(billed)],
+    ['Recebido', money(received)],
+    ['Pendente', money(pending)],
+    ['Saldo (recebido − cobrado)', `<span class="balance ${balance >= 0 ? 'pos' : 'neg'}">${money(balance)}</span>`],
+    ['Cobranças', String(bills.length)],
+    ['Pagamentos', String(pays.length)],
+  ].map(([k, v]) => `<div class="metric">${k}<b>${v}</b></div>`).join('');
+
+  $('clientDetailBills').innerHTML = table(
+    ['Período', 'Emissão', 'Vencimento', 'Valor', 'Multa', 'Estado'],
+    [...bills].reverse().map((b) => [
+      esc(rowPeriod(b)), esc(b.issue || '—'), esc(b.due || '—'),
+      money(b.amount), money(b.late_fee || 0),
+      `<span class="pill ${slug(b.status)}">${esc(b.status)}</span>`,
+    ]),
+  );
+
+  $('clientDetailPays').innerHTML = table(
+    ['Data', 'Período', 'Valor', 'Método', 'Comprovativo', 'Estado', 'Validado por'],
+    [...pays].sort((a, b) => String(b.date).localeCompare(String(a.date))).map((p) => [
+      esc(p.date), esc(rowPeriod(p)), money(p.amount), esc(p.method), esc(p.receipt || '—'),
+      `<span class="pill ${slug(p.status)}">${esc(p.status)}</span>` +
+        (isAdvance(p) ? ' <span class="pill Adiantamento">Adiantamento</span>' : ''),
+      esc(p.validated_by || '—'),
+    ]),
+  );
+
+  $('clientDetail').classList.remove('hidden');
+}
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-consult-client]');
+  if (!b) return;
+  state.consultClient = b.dataset.consultClient;
+  renderClientDetail(state.consultClient);
+  $('clientDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+$('clientDetailClose').addEventListener('click', () => {
+  state.consultClient = null;
+  $('clientDetail').classList.add('hidden');
+});
 
 // ── escrita ──────────────────────────────────────────────────────────────────
 
@@ -801,8 +964,10 @@ setInterval(() => {
 // ── separadores ──────────────────────────────────────────────────────────────
 
 function switchTab(name) {
-  // Ninguém chega ao painel de equipa sem papel de administrador.
+  // Ninguém chega ao painel de equipa sem papel de administrador,
+  // nem à caixa do dia sem papel de operador.
   if (name === 'equipa' && state.role !== 'admin') name = 'painel';
+  if (name === 'caixa' && state.role !== 'operador') name = 'painel';
   for (const b of document.querySelectorAll('[data-tab]')) {
     b.classList.toggle('active', b.dataset.tab === name);
   }
@@ -936,13 +1101,21 @@ $('importCsv').addEventListener('click', async () => {
 const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 function renderCalendar() {
-  $('calYear').textContent = String(state.reportYear);
+  const scope = state.reportScope;
+  // O ano mostrado segue o âmbito: intervalo -> ano do "de"; mês -> ano do mês.
+  let shownYear = state.reportYear;
+  if (scope.kind === 'year') shownYear = Number(scope.year);
+  else if (scope.kind === 'month') shownYear = Number(String(scope.month).split('/')[1]) || shownYear;
+  else if (scope.kind === 'range' && /^\d{4}/.test(String(scope.from || ''))) shownYear = Number(scope.from.slice(0, 4));
+  state.reportYear = shownYear;
+  $('calYear').textContent = String(shownYear);
+
   const now = new Date();
   const nowIdx = now.getFullYear() * 12 + now.getMonth();
   $('calGrid').innerHTML = Array.from({ length: 12 }, (_, i) => {
-    const key = `${String(i + 1).padStart(2, '0')}/${state.reportYear}`;
-    const active = state.reportScope.kind === 'month' && state.reportScope.month === key;
-    const future = state.reportYear * 12 + i > nowIdx;
+    const key = `${String(i + 1).padStart(2, '0')}/${shownYear}`;
+    const active = scope.kind === 'month' && scope.month === key;
+    const future = shownYear * 12 + i > nowIdx;
     return (
       `<button type="button" data-month="${key}"${active ? ' class="active"' : ''}>` +
       `${MONTHS_SHORT[i]}<small>${future ? 'futuro' : key}</small></button>`
@@ -950,14 +1123,42 @@ function renderCalendar() {
   }).join('');
   for (const b of $('scopeBar').querySelectorAll('button')) {
     const on = b.dataset.scope === 'all'
-      ? state.reportScope.kind === 'all'
-      : state.reportScope.kind === 'year';
+      ? scope.kind === 'all'
+      : b.dataset.scope === 'range'
+        ? scope.kind === 'range'
+        : scope.kind === 'year';
     b.classList.toggle('active', on);
   }
-  $('calHint').textContent =
-    state.reportScope.kind === 'month' ? periodLabel(state.reportScope.month)
-      : state.reportScope.kind === 'year' ? `Ano ${state.reportScope.year}`
-        : 'Todo o período';
+
+  // Barra do intervalo: só no âmbito "De – até", sempre com valores preenchidos.
+  const rangeOn = scope.kind === 'range';
+  $('rangeBar').classList.toggle('hidden', !rangeOn);
+  if (rangeOn) {
+    const r = ensureRange();
+    $('rangeFrom').value = r.from;
+    $('rangeTo').value = r.to;
+  }
+  $('calHint').textContent = scopeHint(scope);
+}
+
+/** Intervalo activo (cria um por omissão: mês corrente até hoje). */
+function ensureRange() {
+  if (!state.reportRange) {
+    const d = new Date();
+    const from = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    state.reportRange = { from, to: today() };
+  }
+  return state.reportRange;
+}
+
+/** Lê o intervalo dos inputs, corrigindo inversões (de > até). */
+function readRangeInputs() {
+  let from = $('rangeFrom').value;
+  let to = $('rangeTo').value;
+  if (!from || !to) return null;
+  if (from > to) [from, to] = [to, from];
+  state.reportRange = { from, to };
+  return state.reportRange;
 }
 
 const REPORT_HEADS = {
@@ -1015,6 +1216,7 @@ function renderReport() {
   const type = $('reportType').value;
   const r = buildReport({ payments: state.payments, bills: state.bills, scope: state.reportScope });
   const t = r.totals;
+  $('reportScopeLine').textContent = `Âmbito: ${scopeHint(state.reportScope)}`;
   $('reportStats').innerHTML = [
     ['Cobrado', money(t.billed)],
     ['Recebido (ganhos)', money(t.received)],
@@ -1028,9 +1230,9 @@ function renderReport() {
 $('scopeBar').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-scope]');
   if (!b) return;
-  state.reportScope = b.dataset.scope === 'year'
-    ? { kind: 'year', year: state.reportYear }
-    : { kind: 'all' };
+  if (b.dataset.scope === 'range') state.reportScope = { kind: 'range', ...ensureRange() };
+  else if (b.dataset.scope === 'year') state.reportScope = { kind: 'year', year: state.reportYear };
+  else state.reportScope = { kind: 'all' };
   renderReport();
 });
 
@@ -1041,17 +1243,44 @@ $('calGrid').addEventListener('click', (e) => {
   renderReport();
 });
 
-$('calPrev').addEventListener('click', () => {
-  state.reportYear -= 1;
-  if (state.reportScope.kind === 'year') state.reportScope = { kind: 'year', year: state.reportYear };
+/** Setas ‹ ›: desloca o âmbito activo pelo passo escolhido (dia/mês/ano). */
+function shiftActiveScope(dir) {
+  const step = $('rangeStep').value || 'month';
+  state.reportStep = step;
+  if (state.reportScope.kind === 'all') {
+    // Sem âmbito, as setas apenas navegam o calendário.
+    state.reportYear += dir;
+  } else {
+    state.reportScope = shiftScope(state.reportScope, step, dir);
+    if (state.reportScope.kind === 'range') state.reportRange = { from: state.reportScope.from, to: state.reportScope.to };
+  }
+  renderReport();
+}
+
+$('calPrev').addEventListener('click', () => shiftActiveScope(-1));
+$('calNext').addEventListener('click', () => shiftActiveScope(1));
+$('rangePrev').addEventListener('click', () => shiftActiveScope(-1));
+$('rangeNext').addEventListener('click', () => shiftActiveScope(1));
+
+$('rangeToday').addEventListener('click', () => {
+  const t = today();
+  state.reportRange = { from: t, to: t };
+  state.reportScope = { kind: 'range', ...state.reportRange };
   renderReport();
 });
 
-$('calNext').addEventListener('click', () => {
-  state.reportYear += 1;
-  if (state.reportScope.kind === 'year') state.reportScope = { kind: 'year', year: state.reportYear };
-  renderReport();
+$('rangeStep').addEventListener('change', () => {
+  state.reportStep = $('rangeStep').value;
 });
+
+for (const id of ['rangeFrom', 'rangeTo']) {
+  $(id).addEventListener('change', () => {
+    const r = readRangeInputs();
+    if (!r) return;
+    state.reportScope = { kind: 'range', ...r };
+    renderReport();
+  });
+}
 
 $('reportType').addEventListener('change', renderReport);
 $('reportPrint').addEventListener('click', () => window.print());

@@ -25,9 +25,9 @@ Esquema Supabase, armazenamento local, motor de sincronização e interface PWA.
 | `scripts/make-icons.mjs` | Gera os PNG do manifest (sem dependências) |
 | `tests/sync-engine.test.mjs` | 11 testes de comportamento do motor |
 | `tests/remote-supabase.test.mjs` | 19 testes do adaptador remoto |
-| `tests/admin-users.test.mjs` | 15 testes do cliente do painel de equipa |
-| `tests/portal.test.mjs` | 19 testes do modelo de dados do portal do cliente |
-| `tests/report.test.mjs` | 12 testes dos âmbitos, períodos e CSV de relatórios |
+| `tests/admin-users.test.mjs` | 17 testes do cliente do painel de equipa |
+| `tests/portal.test.mjs` | 21 testes do modelo de dados do portal do cliente |
+| `tests/report.test.mjs` | 20 testes dos âmbitos (calendário, intervalo, navegação) e CSV |
 | `tests/charts.test.mjs` | 6 testes do gráfico SVG de balanço |
 
 No repositório, ao lado de `app/`:
@@ -37,6 +37,8 @@ No repositório, ao lado de `app/`:
 | `index.html` (raiz) | Router `?portal=admin\|cliente` + ecrã de escolha |
 | `portal/index.html` + `portal/src/portal.js` | Portal do cliente (login, resumo, pagos, pendentes) |
 | `portal/src/portal-data.js` | Modelo puro: `buildView`, `yearOf`, `monthOf` |
+| `portal/manifest.webmanifest` + `portal/sw.js` | PWA celular do portal (instalação + cache da casca) |
+| `apk/ENDE-Portal-v1.apk` | APK Android do portal (keystore gitignored ao lado) |
 
 O motor não conhece Supabase nem IndexedDB. Recebe dois adaptadores, por isso
 corre igual no telemóvel, no PC e nos testes.
@@ -198,8 +200,14 @@ migração `0002`).
 
 O separador **Relatórios** (`src/report.js`, funções puras) cobre:
 
-- **Âmbito**: *Todo o período* (omissão), *Ano inteiro* ou um mês exacto
-  escolhido num **calendário** de 12 meses com navegação de anos.
+- **Âmbito**: *Todo o período* (omissão), *Ano inteiro*, um mês exacto
+  escolhido num **calendário** de 12 meses, ou um intervalo **De – até**
+  com campos de data.
+- **Navegação**: as setas `‹ ›` deslocam o âmbito activo pelo **passo**
+  escolhido no select — **Dia**, **Mês** (omissão) ou **Ano** — quer se esteja
+  no calendário, quer no intervalo. O botão **Hoje** volta ao dia corrente e
+  as datas trocam-se de lado sozinhas se forem invertidas. A linha
+  «Âmbito: …» aparece no ecrã e na impressão.
 - **Saída**: tabela no ecrã, **CSV** (`;`, aspas dobradas, BOM — abre no
   Excel) e **Imprimir/PDF** via `@media print` (só o conteúdo, sem chrome).
 - 6 tipos de relatório: resumo, pagamentos, cobranças, clientes, métodos e
@@ -228,6 +236,31 @@ falhava em browsers com diálogo bloqueado):
 Os formulários de pagamento e cobrança validam o campo **período** com
 `pattern="MM/AAAA"`.
 
+## Operador — consulta de clientes e caixa do dia
+
+Só o papel **operador** vê o separador **Caixa do dia** (`#tabCaixa`,
+escondido para `admin` e `cliente`, com guarda também em `switchTab`):
+
+- **Entradas** = pagamentos *Confirmado* do dia; **Saídas** = *Rejeitado*;
+  **Saldo do dia** = entradas − saídas; mostra ainda o que está *Pendente*
+  de validação e as **cobranças emitidas** no dia (informativo).
+- Tabelas de **entradas por método** e de **movimentos do dia**
+  (pagamentos + cobranças, ordenados por data).
+- **CSV** (`ende-caixa-AAAA-MM-DD.csv`) e **Imprimir/PDF** do dia, ambos
+  construídos com o âmbito de intervalo `[hoje, hoje]` — a mesma
+  máquina de relatórios do resto da app.
+- A data é **local** (`today()`), não UTC: à meia-noite em Angola (UTC+1)
+  o dia anterior já era mostrado pelo código antigo.
+
+**Consulta de clientes** (separador Clientes, disponível a admin e operador):
+
+- A pesquisa por nome/referência já existia; cada linha passa a ter
+  **Consultar**, que abre o painel `#clientDetail` com ficha, métricas
+  (cobrado, recebido, pendente, saldo), **cobranças** e **pagamentos**
+  daquele cliente — incluindo a pill *Adiantamento* e quem validou.
+- **Fechar consulta** volta a esconder o painel; os dados re-renderizam
+  quando há sync.
+
 ## Portal do cliente — mapa de conta
 
 - **Descarregar CSV** (`ende-mapa-de-conta.csv`): uma linha por período —
@@ -235,6 +268,50 @@ Os formulários de pagamento e cobrança validam o campo **período** com
   data, comprovativo e tipo (Adiantamento/Normal).
 - **Imprimir/PDF**: o mesmo conteúdo em papel, sem o resto do portal.
 - Pill **Adiantamento** nos meses pagos com período futuro.
+
+## Portal do cliente — celular primeiro (PWA)
+
+O portal é feito para telemóvel:
+
+- **Media queries** `≤700px` e `≤400px`: cabeçalho em grelha com botões de
+  44 px, campos a 16 px (impede o zoom automático do iOS), tabelas com
+  scroll horizontal, `safe-area-inset` no topo e no fundo, métricas em
+  duas colunas.
+- **Metas PWA**: `mobile-web-app-capable`, `apple-mobile-web-app-*`,
+  `theme-color` e `<link rel="manifest">` → `manifest.webmanifest`
+  (`standalone`, `portrait`, ícones 192/512/maskable).
+- **Service worker** `portal/sw.js` (`ende-portal-v1`): cache-first com
+  revalidação em segundo plano, só da própria origem — o Supabase vai
+  sempre à rede. Registado em `src/portal.js`.
+
+## APK do portal (Capacitor)
+
+APK leve que abre o portal directamente (ligação à rede, sem cópia do dado):
+
+- **Workspace de compilação** (fora do repo, não polui o projecto):
+  `C:\Users\HP\AppData\Local\Temp\opencode\ende-apk` com
+  `@capacitor/core|cli|android` v8 e `capacitor.config.json`:
+  `appId: ao.ende.portal`, `server.url` = portal no **GitHub Pages**
+  (o Vercel continua com protecção activa → 302; quando for desactivada,
+  mudar `server.url` e recompilar).
+- **Assinatura própria**: `apk/ende-portal.keystore` (alias `ende-portal`,
+  válida 10000 dias) — **gitignored**, password em `apk/keystore.local.txt`.
+  Sem este ficheiro não se consegue actualizar a APK instalada.
+- **Compilar** (Java 17 + Android SDK já instalados):
+
+  ```pwsh
+  cd C:\Users\HP\AppData\Local\Temp\opencode\ende-apk
+  npx cap sync android          # copia www/ e a configuração
+  cd android
+  .\gradlew.bat assembleRelease
+  # sai em android\app\build\outputs\apk\release\app-release.apk
+  ```
+
+- **Entrega**: copiar para `apk/ENDE-Portal-v1.apk` (commitado) —
+  instalar pelo telemóvel em
+  `https://jervasioantonio97-blip.github.io/ENDE2026/apk/ENDE-Portal-v1.apk`
+  (Android: permitir «fontes desconhecidas» para o browser). Actualizações
+  usam sempre o mesmo keystore.
 
 ## Tema e interface
 
@@ -276,7 +353,8 @@ demonstração estão em `contas-de-acesso.local.txt` (gitignored).
 
 ## Próximo passo
 
-1. Capacitor para gerar o APK Android a partir desta mesma casca.
-2. Convidar os restantes funcionários pelo separador **Equipa** (só é preciso
+1. Convidar os restantes funcionários pelo separador **Equipa** (só é preciso
    estar logado como `admin`). Enquanto não existir linha em `profiles`, o RLS
    devolve zero linhas.
+2. Desactivar a *Deployment Protection* no Vercel e repontar o `server.url`
+   da APK para `https://ende-control-7xxat6pia-jerva.vercel.app/portal/`.

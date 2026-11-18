@@ -10,9 +10,13 @@ import {
   periodLabel,
   monthName,
   rowPeriod,
+  rowDate,
   isAdvance,
   inScope,
   scopeLabel,
+  scopeHint,
+  shiftISO,
+  shiftScope,
   buildReport,
   toCSV,
   reportCSV,
@@ -117,7 +121,79 @@ test('scopeLabel gera o rótulo do âmbito (para nomes de ficheiro)', () => {
   assert.equal(scopeLabel({ kind: 'all' }), 'todo-o-periodo');
   assert.equal(scopeLabel({ kind: 'year', year: 2026 }), '2026');
   assert.equal(scopeLabel({ kind: 'month', month: '11/2026' }), '11-2026');
+  assert.equal(scopeLabel({ kind: 'range', from: '2026-11-01', to: '2026-11-17' }), 'de-20261101-ate-20261117');
   assert.equal(scopeLabel(null), 'todo-o-periodo');
+});
+
+// ── âmbito de intervalo (de – até) e navegação dia/mês/ano ────────────────────
+
+test('rowDate devolve a data efectiva do registo em ISO', () => {
+  assert.equal(rowDate(payment({ date: '2026-12-16' })), '2026-12-16');
+  assert.equal(rowDate(bill({ issue: '2026-11-16', due: '2026-11-20' })), '2026-11-16');
+  // sem data: cai para o 1.º dia do período (MM/AAAA e MM/AA)
+  assert.equal(rowDate(bill({ period: '11/2026', issue: '' })), '2026-11-01');
+  assert.equal(rowDate(payment({ period: '12/26', date: '' })), '2026-12-01');
+  assert.equal(rowDate(payment({ period: '', date: '' })), '');
+});
+
+test('inScope filtra o intervalo de – até por data efectiva', () => {
+  const p = payment({ date: '2026-11-15' });
+  const scope = { kind: 'range', from: '2026-11-01', to: '2026-11-30' };
+  assert.equal(inScope(p, scope, TODAY), true);
+  assert.equal(inScope(p, { kind: 'range', from: '2026-11-16', to: '2026-12-31' }, TODAY), false);
+  assert.equal(inScope(p, { kind: 'range', from: '2026-11-15', to: '2026-11-15' }, TODAY), true); // dia exacto
+  assert.equal(inScope(payment({ period: '', date: '' }), scope, TODAY), false); // sem data fica de fora
+  // períodos sem `date` usam o 1.º dia do mês
+  assert.equal(inScope(bill({ period: '11/2026' }), scope, TODAY), true);
+  assert.equal(inScope(bill({ period: '10/2026' }), scope, TODAY), false);
+});
+
+test('scopeHint traduz o âmbito para português', () => {
+  assert.equal(scopeHint({ kind: 'all' }), 'Todo o período');
+  assert.equal(scopeHint({ kind: 'year', year: 2026 }), 'Ano 2026');
+  assert.equal(scopeHint({ kind: 'month', month: '11/2026' }), 'Novembro 2026');
+  assert.equal(scopeHint({ kind: 'range', from: '2026-11-01', to: '2026-11-17' }), 'De 01/11/2026 até 17/11/2026');
+});
+
+test('shiftISO desloca dias, meses e anos com clamp ao fim do mês', () => {
+  assert.equal(shiftISO('2026-11-17', 'day', 1), '2026-11-18');
+  assert.equal(shiftISO('2026-11-17', 'day', -1), '2026-11-16');
+  assert.equal(shiftISO('2026-12-31', 'month', 1), '2027-01-31');
+  assert.equal(shiftISO('2026-01-31', 'month', 1), '2026-02-28'); // clamp
+  assert.equal(shiftISO('2026-01-01', 'month', -1), '2025-12-01');
+  assert.equal(shiftISO('2026-11-17', 'year', 1), '2027-11-17');
+  assert.equal(shiftISO('2024-02-29', 'year', 1), '2025-02-28'); // clamp bissexto
+  assert.equal(shiftISO('lixo', 'day', 1), 'lixo'); // não lança
+});
+
+test('shiftScope move o âmbito activo; all fica intacto', () => {
+  assert.equal(shiftScope({ kind: 'all' }, 'day', 1).kind, 'all');
+  const r = shiftScope({ kind: 'range', from: '2026-11-01', to: '2026-11-17' }, 'day', -1);
+  assert.deepEqual(r, { kind: 'range', from: '2026-10-31', to: '2026-11-16' });
+  const rY = shiftScope({ kind: 'range', from: '2026-11-01', to: '2026-11-17' }, 'year', 1);
+  assert.deepEqual(rY, { kind: 'range', from: '2027-11-01', to: '2027-11-17' });
+  assert.deepEqual(shiftScope({ kind: 'month', month: '11/2026' }, 'month', 1), { kind: 'month', month: '12/2026' });
+  assert.deepEqual(shiftScope({ kind: 'month', month: '12/2026' }, 'month', 1), { kind: 'month', month: '01/2027' });
+  assert.deepEqual(shiftScope({ kind: 'month', month: '01/2026' }, 'month', -1), { kind: 'month', month: '12/2025' });
+  assert.deepEqual(shiftScope({ kind: 'month', month: '11/2026' }, 'year', -1), { kind: 'month', month: '11/2025' });
+  assert.deepEqual(shiftScope({ kind: 'year', year: 2026 }, 'day', 1), { kind: 'year', year: 2027 });
+});
+
+test('buildReport com âmbito de intervalo soma só o que cai no período', () => {
+  const r = buildReport({
+    today: TODAY,
+    payments: [
+      payment({ date: '2026-11-15', amount: 1000 }),
+      payment({ id: 'p2', date: '2026-11-20', amount: 2000 }),
+      payment({ id: 'p3', date: '2026-12-01', amount: 4000 }),
+    ],
+    bills: [bill({ issue: '2026-11-16', amount: 500 }), bill({ id: 'b2', issue: '2026-12-02', amount: 900 })],
+    scope: { kind: 'range', from: '2026-11-01', to: '2026-11-30' },
+  });
+  assert.equal(r.totals.received, 3000);
+  assert.equal(r.totals.billed, 500);
+  assert.equal(r.payments.length, 2);
+  assert.equal(r.bills.length, 1);
 });
 
 test('buildReport soma totais e exclui apagados/anulados', () => {
