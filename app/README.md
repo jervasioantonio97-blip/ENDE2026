@@ -291,15 +291,20 @@ APK leve que abre o portal directamente (ligação à rede, sem cópia do dado):
 - **Workspace de compilação** (fora do repo, não polui o projecto):
   `C:\Users\HP\AppData\Local\Temp\opencode\ende-apk` com
   `@capacitor/core|cli|android` v8 e `capacitor.config.json`:
-  `appId: ao.ende.portal`, `server.url` = portal no **GitHub Pages**
-  (o Vercel continua com protecção activa → 302; quando for desactivada,
-  mudar `server.url` e recompilar).
+  `appId: ao.ende.portal`, `server.url` = portal no **Vercel**
+  (`https://endetwentysix.vercel.app/portal/`, sem protecção desde
+  2026-11-18; para voltar ao Pages basta mudar essa linha e recompilar).
+- **JDK 21 obrigatório** (o Capacitor 8 não compila com 17): há um portátil
+  em `C:\Users\HP\AppData\Local\Temp\opencode\jdk21\jdk-21.0.13+9` —
+  definir `JAVA_HOME` antes de correr o Gradle.
 - **Assinatura própria**: `apk/ende-portal.keystore` (alias `ende-portal`,
   válida 10000 dias) — **gitignored**, password em `apk/keystore.local.txt`.
   Sem este ficheiro não se consegue actualizar a APK instalada.
-- **Compilar** (Java 17 + Android SDK já instalados):
+- **Compilar**:
 
   ```pwsh
+  $env:JAVA_HOME = 'C:\Users\HP\AppData\Local\Temp\opencode\jdk21\jdk-21.0.13+9'
+  $env:Path = "$env:JAVA_HOME\bin;$env:Path"
   cd C:\Users\HP\AppData\Local\Temp\opencode\ende-apk
   npx cap sync android          # copia www/ e a configuração
   cd android
@@ -307,11 +312,13 @@ APK leve que abre o portal directamente (ligação à rede, sem cópia do dado):
   # sai em android\app\build\outputs\apk\release\app-release.apk
   ```
 
-- **Entrega**: copiar para `apk/ENDE-Portal-v1.apk` (commitado) —
+- **Entrega**: `apk/ENDE-Portal-v1.apk` (commitado, ~3 MB) —
   instalar pelo telemóvel em
   `https://jervasioantonio97-blip.github.io/ENDE2026/apk/ENDE-Portal-v1.apk`
-  (Android: permitir «fontes desconhecidas» para o browser). Actualizações
-  usam sempre o mesmo keystore.
+  (Android: permitir «fontes desconhecidas» para o browser). Verificada com
+  `apksigner` (V2, CN=ENDE Portal) e `aapt`: `ao.ende.portal` v1.0,
+  minSdk 24 / targetSdk 36, só a permissão `INTERNET`. Actualizações usam
+  sempre o mesmo keystore.
 
 ## Tema e interface
 
@@ -342,10 +349,12 @@ minutos. Para auditoria formal seria necessário um relógio lógico (HLC).
   - Escolha: `https://jervasioantonio97-blip.github.io/ENDE2026/`
   - Admin: `.../ENDE2026/?portal=admin`
   - Cliente: `.../ENDE2026/?portal=cliente`
-- **Vercel** (alternativa, ligado ao GitHub): `https://ende-control-7xxat6pia-jerva.vercel.app/`
-  — recebe o deploy de `main`, mas a *Deployment Protection* (Vercel
-  Authentication) está activa: desactivar em
-  `vercel.com → projecto → Settings → Deployment Protection → Disabled`.
+- **Vercel** (alternativa, ligado ao GitHub): `https://endetwentysix.vercel.app/`
+  — recebe o deploy de `main` e está **aberto** (a *Deployment Protection*
+  foi desactivada a 2026-11-18; o domínio anterior
+  `ende-control-7xxat6pia-jerva.vercel.app` já não é usado).
+  O `vercel.json` obriga `Cache-Control: no-cache` a `app/sw.js` e
+  `portal/sw.js` (senão o PWA fica preso à versão antiga).
 
 A `service_role` e o token de acesso nunca vão para o cliente: as credenciais
 do navegador são a chave publishable e o JWT da sessão. Os acessos de
@@ -356,5 +365,6 @@ demonstração estão em `contas-de-acesso.local.txt` (gitignored).
 1. Convidar os restantes funcionários pelo separador **Equipa** (só é preciso
    estar logado como `admin`). Enquanto não existir linha em `profiles`, o RLS
    devolve zero linhas.
-2. Desactivar a *Deployment Protection* no Vercel e repontar o `server.url`
-   da APK para `https://ende-control-7xxat6pia-jerva.vercel.app/portal/`.
+2. Actualizações da APK: mudar o código do portal, recompilar (passos na
+   secção acima) e subir o novo `apk/ENDE-Portal-vN.apk` — o `versionCode`
+   tem de subir senão o Android recusa a actualização por cima da instalada.
