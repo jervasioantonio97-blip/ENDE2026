@@ -1,0 +1,14 @@
+# Credenciais locais — nunca sobem para a Vercel (só afecta `vercel` CLI,
+# os deploys via GitHub só levam ficheiros versionados)
+contas-de-acesso.local.txt
+*.credentials.local.*
+.env
+.env.local
+*.log
+
+# Artefactos e estado local
+.git/
+node_modules/
+dist/
+.temp/
+.vercel/

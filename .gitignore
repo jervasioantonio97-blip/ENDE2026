@@ -12,6 +12,13 @@ node_modules/
 dist/
 *.log
 
+# Vercel (estado local do CLI)
+.vercel/
+
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Keystore da APK do portal (segredo - ver apk/keystore.local.txt)
+apk/*.keystore
+apk/*.local.txt
