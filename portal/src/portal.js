@@ -219,6 +219,13 @@ $('csvBtn').addEventListener('click', () => {
 
 $('printBtn').addEventListener('click', () => window.print());
 
+// PWA: regista o service worker (casca em cache, dado sempre da rede).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+
 // Sessão guardada? Entra directamente; sem perfil válido, volta ao login.
 (async () => {
   if (!auth.getSession()) {
