@@ -22,7 +22,7 @@ Esquema Supabase, armazenamento local, motor de sincronização e interface PWA.
 | `src/core/ids.js` | UUID com fallback para WebView sem contexto seguro |
 | `sw.js` + `manifest.webmanifest` | Arranque offline e instalação como app |
 | `scripts/seed.mjs` | Cria organização + perfil do primeiro admin |
-| `scripts/make-icons.mjs` | Gera os PNG do manifest (sem dependências) |
+| `scripts/make-icons.mjs` | Gera os PNG da marca: manifest/PWA e mipmap da APK (sem dependências) |
 | `tests/sync-engine.test.mjs` | 11 testes de comportamento do motor |
 | `tests/remote-supabase.test.mjs` | 19 testes do adaptador remoto |
 | `tests/admin-users.test.mjs` | 17 testes do cliente do painel de equipa |
@@ -38,7 +38,7 @@ No repositório, ao lado de `app/`:
 | `portal/index.html` + `portal/src/portal.js` | Portal do cliente (login, resumo, pagos, pendentes) |
 | `portal/src/portal-data.js` | Modelo puro: `buildView`, `yearOf`, `monthOf` |
 | `portal/manifest.webmanifest` + `portal/sw.js` | PWA celular do portal (instalação + cache da casca) |
-| `apk/ENDE-Portal-v1.apk` | APK Android do portal (keystore gitignored ao lado) |
+| `apk/ENDE-Portal-v2.apk` | APK Android do portal v1.1 com o ícone da marca (v1 mantida; keystore gitignored ao lado) |
 
 O motor não conhece Supabase nem IndexedDB. Recebe dois adaptadores, por isso
 corre igual no telemóvel, no PC e nos testes.
@@ -280,7 +280,7 @@ O portal é feito para telemóvel:
 - **Metas PWA**: `mobile-web-app-capable`, `apple-mobile-web-app-*`,
   `theme-color` e `<link rel="manifest">` → `manifest.webmanifest`
   (`standalone`, `portrait`, ícones 192/512/maskable).
-- **Service worker** `portal/sw.js` (`ende-portal-v1`): cache-first com
+- **Service worker** `portal/sw.js` (`ende-portal-v2`): cache-first com
   revalidação em segundo plano, só da própria origem — o Supabase vai
   sempre à rede. Registado em `src/portal.js`.
 
@@ -300,6 +300,14 @@ APK leve que abre o portal directamente (ligação à rede, sem cópia do dado):
 - **Assinatura própria**: `apk/ende-portal.keystore` (alias `ende-portal`,
   válida 10000 dias) — **gitignored**, password em `apk/keystore.local.txt`.
   Sem este ficheiro não se consegue actualizar a APK instalada.
+- **Ícone/marca**: gerado por `app/scripts/make-icons.mjs` — o mesmo script
+  escreve `app/icons/*` (favicon/manifest dos 3 sites) e, com
+  `--android <res-dir>`, os mipmap da APK (squircle, round e foreground
+  adaptativo). Marca: fundo de vidro turquesa (gradiente `#0e8a7d→#04211f`
+  + brilho + aro), **E branco** de cantos suaves e sublinhado `#2dd4bf`,
+  legível a 48 px. O ícone adaptativo usa o gradiente em
+  `res/drawable/ic_launcher_background.xml` e inclui camada `monochrome`
+  (ícones temáticos do Android 13+). Depois de correr o script, recompilar.
 - **Compilar**:
 
   ```pwsh
@@ -312,11 +320,13 @@ APK leve que abre o portal directamente (ligação à rede, sem cópia do dado):
   # sai em android\app\build\outputs\apk\release\app-release.apk
   ```
 
-- **Entrega**: `apk/ENDE-Portal-v1.apk` (commitado, ~3 MB) —
-  instalar pelo telemóvel em
-  `https://jervasioantonio97-blip.github.io/ENDE2026/apk/ENDE-Portal-v1.apk`
-  (Android: permitir «fontes desconhecidas» para o browser). Verificada com
-  `apksigner` (V2, CN=ENDE Portal) e `aapt`: `ao.ende.portal` v1.0,
+- **Entrega**: `apk/ENDE-Portal-v2.apk` (commitado, ~3 MB,
+  `versionCode 2` / `versionName 1.1`) — instalar pelo telemóvel em
+  `https://jervasioantonio97-blip.github.io/ENDE2026/apk/ENDE-Portal-v2.apk`
+  (Android: permitir «fontes desconhecidas» para o browser). A v1
+  mantém-se no repositório; para actualizar a APK já instalada o
+  `versionCode` tem de subir sempre. Verificada com
+  `apksigner` (V2, CN=ENDE Portal) e `aapt`: `ao.ende.portal` v1.1,
   minSdk 24 / targetSdk 36, só a permissão `INTERNET`. Actualizações usam
   sempre o mesmo keystore.
 

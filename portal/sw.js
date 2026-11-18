@@ -4,7 +4,7 @@
 // segundo plano (a próxima visita recebe a versão nova); o Supabase nunca
 // entra na cache (o fetch handler só intercepta a própria origem).
 
-const CACHE = 'ende-portal-v1';
+const CACHE = 'ende-portal-v2';
 
 const SHELL = [
   './',

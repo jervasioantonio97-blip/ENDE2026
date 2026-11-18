@@ -1,10 +1,12 @@
-// Gera os ícones PNG do manifest sem dependências externas.
+// Gera os ícones PNG (web e Android) sem dependências externas.
 //
-//   node scripts/make-icons.mjs
+//   node scripts/make-icons.mjs                      → app/icons/*.png (manifest/PWA)
+//   node scripts/make-icons.mjs --android <res-dir>  → também os mipmap da APK
 //
-// Escreve icons/icon-192.png, icons/icon-512.png e icons/icon-maskable-512.png.
 // O SVG (icons/icon.svg) é à mão e continua a ser a fonte visual; este script
-// reproduz a mesma marca em raster para browsers que não aceitam SVG no manifest.
+// reproduz a mesma marca em raster para browsers e launchers que não aceitam SVG.
+// Marca: fundo de vidro turquesa (gradiente + brilho + aro), E branco de cantos
+// suaves e sublinhado turquesa — legível a 48 px.
 
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -14,19 +16,23 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, '..', 'icons');
 
-const NAVY = [0x15, 0x38, 0x5b, 255];
+// ── paleta (tema verde turquesa glass) ──────────────────────────────────────
+const G0 = [0x0e, 0x8a, 0x7d, 255]; // topo-esquerda do gradiente
+const G1 = [0x04, 0x21, 0x1f, 255]; // fundo-direita (tinta do tema)
 const WHITE = [0xff, 0xff, 0xff, 255];
+const TURQUOISE = [0x2d, 0xd4, 0xbf, 255];
 const CLEAR = [0, 0, 0, 0];
 
-// Marca: haste vertical + três travessões, na mesma proporção do SVG.
-// [x, y, largura, altura] em fracção do lado do ícone.
+// ── marca: haste + três travessões + sublinhado, em fracção do lado (512) ───
+// Geometria centrada opticamente: a bbox do glyph fica centrada em 0.5, 0.5.
 const E_BARS = [
-  [0.301, 0.270, 0.090, 0.461],
-  [0.301, 0.270, 0.420, 0.090],
-  [0.301, 0.455, 0.359, 0.090],
-  [0.301, 0.641, 0.420, 0.090],
+  [0.290, 0.2305, 0.420, 0.090], // topo
+  [0.290, 0.4160, 0.359, 0.090], // meio
+  [0.290, 0.6016, 0.420, 0.090], // fundo
+  [0.290, 0.2305, 0.090, 0.461], // haste (encosta nos três travessões)
 ];
-const UNDERLINE = [0.301, 0.773, 0.420, 0.035];
+const UNDERLINE = [0.290, 0.7344, 0.420, 0.0352];
+const GLYPH_RADIUS = 0.0176; // 9/512 — cantos suaves do E
 
 // ── PNG ──────────────────────────────────────────────────────────────────────
 
@@ -83,47 +89,111 @@ function encodePng(size, pixelAt) {
   ]);
 }
 
+// ── geometria (distâncias normalizadas; negativo = dentro) ───────────────────
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+function sdRoundRect(x, y, cx, cy, hw, hh, r) {
+  const qx = Math.abs(x - cx) - (hw - r);
+  const qy = Math.abs(y - cy) - (hh - r);
+  return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+}
+
+// Superelipse n=5: o "squircle" moderno (cantos mais suaves que um arco).
+function sdSquircle(x, y) {
+  const dx = Math.abs(x - 0.5) / 0.5;
+  const dy = Math.abs(y - 0.5) / 0.5;
+  const g = Math.pow(Math.pow(dx, 5) + Math.pow(dy, 5), 1 / 5);
+  return (g - 1) * 0.5;
+}
+
+function scaleRect([x, y, w, h], s) {
+  const cx = 0.5 + (x + w / 2 - 0.5) * s;
+  const cy = 0.5 + (y + h / 2 - 0.5) * s;
+  return [cx - (w * s) / 2, cy - (h * s) / 2, w * s, h * s];
+}
+
 // ── desenho ──────────────────────────────────────────────────────────────────
 
-function insideRoundedCorner(x, y, size, radius) {
-  const cx = Math.min(Math.max(x, radius), size - radius);
-  const cy = Math.min(Math.max(y, radius), size - radius);
-  const dx = x - cx;
-  const dy = y - cy;
-  return dx * dx + dy * dy <= radius * radius;
-}
-
-function inBar(fx, fy, [bx, by, bw, bh]) {
-  return fx >= bx && fx < bx + bw && fy >= by && fy < by + bh;
-}
-
 /**
- * Pinta um ícone. `glyphScale` < 1 mete a marca dentro da zona segura
- * exigida pelo propósito "maskable" (80% centrais).
+ * Pinta um ícone.
+ *   shape: 'squircle' | 'circle' | 'square' | 'foreground' (só glyph, sem fundo)
+ *   glyphScale < 1 mete a marca na zona segura (maskable / adaptativo).
  */
-function paintIcon(size, { radius, glyphScale }) {
-  const bars = E_BARS.map(([x, y, w, h]) => {
-    const cx = 0.5 + (x - 0.5) * glyphScale;
-    const cy = 0.5 + (y - 0.5) * glyphScale;
-    return [cx, cy, w * glyphScale, h * glyphScale];
-  });
-  const underline = (() => {
-    const [x, y, w, h] = UNDERLINE;
-    return [
-      0.5 + (x - 0.5) * glyphScale,
-      0.5 + (y - 0.5) * glyphScale,
-      w * glyphScale,
-      h * glyphScale,
-    ];
-  })();
+function paintIcon(size, { shape, glyphScale = 1 }) {
+  const gR = GLYPH_RADIUS * glyphScale;
+  const bars = E_BARS.map((b) => scaleRect(b, glyphScale));
+  const under = scaleRect(UNDERLINE, glyphScale);
+  const uR = Math.min(under[2], under[3]) / 2;
+
+  const glyphDist = (fx, fy) => {
+    let d = Infinity;
+    for (const [bx, by, bw, bh] of bars) {
+      d = Math.min(d, sdRoundRect(fx, fy, bx + bw / 2, by + bh / 2, bw / 2, bh / 2, Math.min(gR, bw / 2, bh / 2)));
+    }
+    return d;
+  };
 
   return (px, py) => {
-    if (radius > 0 && !insideRoundedCorner(px + 0.5, py + 0.5, size, radius)) return CLEAR;
     const fx = (px + 0.5) / size;
     const fy = (py + 0.5) / size;
-    if (bars.some((b) => inBar(fx, fy, b))) return WHITE;
-    if (inBar(fx, fy, underline)) return [0x3d, 0x8f, 0xd1, 255];
-    return NAVY;
+
+    const dE = glyphDist(fx, fy);
+    const dU = sdRoundRect(fx, fy, under[0] + under[2] / 2, under[1] + under[3] / 2, under[2] / 2, under[3] / 2, uR);
+    const eA = clamp01(0.5 - dE * size);
+    const uA = clamp01(0.5 - dU * size);
+
+    // Só o glyph (camada adaptativa do Android): fundo transparente.
+    if (shape === 'foreground') {
+      if (eA <= 0 && uA <= 0) return CLEAR;
+      let c = WHITE;
+      if (uA > eA) {
+        c = TURQUOISE;
+        const a = Math.round(uA * 255);
+        return [c[0], c[1], c[2], a];
+      }
+      return [c[0], c[1], c[2], Math.round(eA * 255)];
+    }
+
+    const dBg =
+      shape === 'squircle'
+        ? sdSquircle(fx, fy)
+        : shape === 'circle'
+          ? sdRoundRect(fx, fy, 0.5, 0.5, 0.5, 0.5, 0.5)
+          : sdRoundRect(fx, fy, 0.5, 0.5, 0.5, 0.5, 0);
+    const bgA = clamp01(0.5 - dBg * size);
+    if (bgA <= 0) return CLEAR;
+
+    // Gradiente diagonal suavizado (topo-esquerda claro → fundo-direita escuro).
+    let t = clamp01(fx * 0.45 + fy * 0.55);
+    t = t * t * (3 - 2 * t);
+    let r = G0[0] + (G1[0] - G0[0]) * t;
+    let g = G0[1] + (G1[1] - G0[1]) * t;
+    let b = G0[2] + (G1[2] - G0[2]) * t;
+
+    // Brilho de vidro no topo-esquerda.
+    const band = clamp01(1 - (fx * 0.55 + fy * 0.75) / 1.15);
+    const sheen = 0.14 * band * band;
+    // Aro luminoso por dentro da aresta (mais forte em cima).
+    const rim = clamp01(1 + (dBg * size) / 3) * (0.45 + 0.55 * (1 - fy)) * 0.16 * bgA;
+    const lift = Math.min(1, sheen + rim);
+    r += (255 - r) * lift;
+    g += (255 - g) * lift;
+    b += (255 - b) * lift;
+
+    // Marca por cima (E branco; sublinhado turquesa não se sobrepõe ao E).
+    if (eA > 0) {
+      r += (WHITE[0] - r) * eA;
+      g += (WHITE[1] - g) * eA;
+      b += (WHITE[2] - b) * eA;
+    }
+    if (uA > 0) {
+      r += (TURQUOISE[0] - r) * uA;
+      g += (TURQUOISE[1] - g) * uA;
+      b += (TURQUOISE[2] - b) * uA;
+    }
+
+    return [Math.round(r), Math.round(g), Math.round(b), Math.round(bgA * 255)];
   };
 }
 
@@ -131,15 +201,42 @@ function paintIcon(size, { radius, glyphScale }) {
 
 mkdirSync(OUT, { recursive: true });
 
-const targets = [
-  { file: 'icon-192.png', size: 192, radius: 192 * 0.19, glyphScale: 1 },
-  { file: 'icon-512.png', size: 512, radius: 512 * 0.19, glyphScale: 1 },
+const webTargets = [
+  { file: 'icon-192.png', size: 192, shape: 'squircle', glyphScale: 1 },
+  { file: 'icon-512.png', size: 512, shape: 'squircle', glyphScale: 1 },
   // Maskable: fundo até às bordas e marca dentro dos 80% centrais de segurança.
-  { file: 'icon-maskable-512.png', size: 512, radius: 0, glyphScale: 0.72 },
+  { file: 'icon-maskable-512.png', size: 512, shape: 'square', glyphScale: 0.9 },
 ];
 
-for (const t of targets) {
-  const buf = encodePng(t.size, paintIcon(t.size, { radius: t.radius, glyphScale: t.glyphScale }));
+for (const t of webTargets) {
+  const buf = encodePng(t.size, paintIcon(t.size, t));
   writeFileSync(join(OUT, t.file), buf);
   console.log(`${t.file}  ${t.size}x${t.size}  ${buf.length} bytes`);
+}
+
+// Android (opcional): gera os mipmap da APK a partir da mesma marca.
+const androidArg = process.argv.indexOf('--android');
+if (androidArg !== -1 && process.argv[androidArg + 1]) {
+  const res = process.argv[androidArg + 1];
+  const densities = [
+    ['mdpi', 48, 108],
+    ['hdpi', 72, 162],
+    ['xhdpi', 96, 216],
+    ['xxhdpi', 144, 324],
+    ['xxxhdpi', 192, 432],
+  ];
+  for (const [name, std, fgd] of densities) {
+    const dir = join(res, `mipmap-${name}`);
+    mkdirSync(dir, { recursive: true });
+    const files = [
+      ['ic_launcher.png', std, { shape: 'squircle', glyphScale: 1 }],
+      ['ic_launcher_round.png', std, { shape: 'circle', glyphScale: 0.95 }],
+      ['ic_launcher_foreground.png', fgd, { shape: 'foreground', glyphScale: 0.88 }],
+    ];
+    for (const [file, size, opts] of files) {
+      const buf = encodePng(size, paintIcon(size, opts));
+      writeFileSync(join(dir, file), buf);
+      console.log(`mipmap-${name}/${file}  ${size}x${size}  ${buf.length} bytes`);
+    }
+  }
 }
